@@ -704,6 +704,7 @@ contract Sio2Adapter is Initializable, OwnableUpgradeable, ReentrancyGuardUpgrad
         _user.collateralRewardDebt = _user.collateralAmount * accCollateralRewardsPerShare / REWARDS_PRECISION;
     }
 
+    //@dev need to remove before production
     function init2() public {
         (, , , , collateralLTV, ) = pool.getUserAccountData(address(this));
         ( , , , , collateralLT, ) = pool.getUserAccountData(address(this));
