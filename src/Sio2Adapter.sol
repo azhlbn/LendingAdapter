@@ -1,10 +1,10 @@
 pragma solidity 0.8.4;
 //SPDX-License-Identifier: MIT
 
-import "@openzeppelin/contracts/utils/AddressUpgradeable.sol";
-import "@openzeppelin/contracts/access/OwnableUpgradeable.sol";
-import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20Upgradeable.sol";
-import "@openzeppelin/contracts/security/ReentrancyGuardUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/utils/AddressUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/token/ERC20/utils/SafeERC20Upgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/security/ReentrancyGuardUpgradeable.sol";
 import "./interfaces/ISio2LendingPool.sol";
 import "./interfaces/ISio2PriceOracle.sol";
 import "./interfaces/ISio2IncentivesController.sol";
@@ -508,12 +508,13 @@ contract Sio2Adapter is Initializable, OwnableUpgradeable, ReentrancyGuardUpgrad
             Asset storage asset = assetInfo[assets[i]];
 
             if (asset.totalBorrowed > 0) {
-                IERC20Upgradeable token = IERC20Upgradeable(assetInfo[assets[i]].addr);
+                IERC20Upgradeable bToken = IERC20Upgradeable(assetInfo[assets[i]].bTokenAddress);
 
-                uint256 shareOfAsset = token.balanceOf(address(this)) * SHARES_PRECISION / token.totalSupply();
+                uint256 shareOfAsset = bToken.balanceOf(address(this)) * SHARES_PRECISION / bToken.totalSupply();
 
                 // calc rewards amount for asset according to its weight and pool share
-                uint256 assetRewards = receivedRewards * shareOfAsset * asset.rewardsWeight / (sumOfAssetShares * totalRewardsWeight);
+                uint256 assetRewards = receivedRewards * shareOfAsset * asset.rewardsWeight / 
+                    (sumOfAssetShares * totalRewardsWeight);
 
                 asset.accBorrowedRewardsPerShare += assetRewards * REWARDS_PRECISION / asset.totalBorrowed;
             }
@@ -541,7 +542,7 @@ contract Sio2Adapter is Initializable, OwnableUpgradeable, ReentrancyGuardUpgrad
             Asset storage asset = assetInfo[assets[i]];
 
             if (asset.totalBorrowed > 0) {
-                uint256 bTokenBalance = IERC20Upgradeable(assetInfo[assets[i]].addr).balanceOf(address(this));
+                uint256 bTokenBalance = IERC20Upgradeable(assetInfo[assets[i]].bTokenAddress).balanceOf(address(this));
                 uint256 income;
 
                 if (bTokenBalance > asset.lastBTokenBalance) {
@@ -704,7 +705,6 @@ contract Sio2Adapter is Initializable, OwnableUpgradeable, ReentrancyGuardUpgrad
         _user.collateralRewardDebt = _user.collateralAmount * accCollateralRewardsPerShare / REWARDS_PRECISION;
     }
 
-    //@dev need to remove before production
     function init2() public {
         (, , , , collateralLTV, ) = pool.getUserAccountData(address(this));
         ( , , , , collateralLT, ) = pool.getUserAccountData(address(this));
