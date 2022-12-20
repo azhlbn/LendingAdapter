@@ -11,22 +11,10 @@ import "./interfaces/ISio2IncentivesController.sol";
 
 /* 
 TASKS:
-- change order of functions
 - fix visibilies
-- add events
-- think about bitmaps
 - mb change uint types in structs
-- mb later rename bToken to vdToken
+- mb rename bToken to vdToken
 - add more comments
-*/
-
-/* 
-accCollateralRewardsPerShare / total collateral rewards
-accSTokensPerShare       / s tokens increasing
-rewardDebtForBorrowed           / reward debt per asset for user
-asset.accBTokensPerShare / increase user debt / userBTokensIncomeDebt
-asset.accBorrowedRewardsPerShare        / rewards per asset
-user.collateralRewardDebt    / user collateral increasing 
 */
 
 contract Sio2Adapter is Initializable, OwnableUpgradeable, ReentrancyGuardUpgradeable {
@@ -106,6 +94,13 @@ contract Sio2Adapter is Initializable, OwnableUpgradeable, ReentrancyGuardUpgrad
         address indexed assetAddress
     );
     event RemoveAsset(address owner, string indexed assetName);
+    event Borrow(address indexed who, string indexed assetName, uint256 indexed amount);
+    event AddSToken(address indexed who, uint256 indexed amount);
+    event LiquidationCall(address indexed liquidatorAddr, address indexed userAddr, string indexed debtAsset, uint256 debtToCover);
+    event ClaimRewards(address indexed who, uint256 rewardsToClaim);
+    event WithdrawRevenut(address indexed who, uint256 indexed amount);
+    event Repay(address indexed who, address indexed user, string indexed assetName, uint256 amount);
+    event Updates(address indexed who, address indexed user);
 
     /// @custom:oz-upgrades-unsafe-allow constructor
     constructor() {
@@ -129,10 +124,6 @@ contract Sio2Adapter is Initializable, OwnableUpgradeable, ReentrancyGuardUpgrad
         priceOracle = ISio2PriceOracle(0x5f7c3639A854a27DFf64B320De5C9CAF9C4Bd323);
         totalRewardsWeight += COLLATERAL_REWARDS_WEIGHT;
         lastUpdatedBlock = block.number;
-
-        // get collateral info
-        (, , , , collateralLTV, ) = pool.getUserAccountData(address(this));
-        ( , , , , collateralLT, ) = pool.getUserAccountData(address(this));
 
         _updateLastSTokenBalance();
         
@@ -243,11 +234,13 @@ contract Sio2Adapter is Initializable, OwnableUpgradeable, ReentrancyGuardUpgrad
         _updateLastBTokenBalance(assetInfo[_assetName]);
 
         IERC20Upgradeable(assetAddr).safeTransfer(msg.sender, _amount);
+
+        emit Borrow(msg.sender, _assetName, _amount);
     }
 
     // @dev when user calls repay(), _user and msg.sender are the same
     //      and there is difference when liquidator calling function
-    function repay(string memory _assetName, uint256 _amount) public update(msg.sender) nonReentrant {
+    function repayPart(string memory _assetName, uint256 _amount) external update(msg.sender) nonReentrant {
         _repay(_assetName, _amount, msg.sender);
 
         // update user's income debts for bTokens and borrowed rewards
@@ -255,6 +248,12 @@ contract Sio2Adapter is Initializable, OwnableUpgradeable, ReentrancyGuardUpgrad
 
         // update bToken's last balance
         _updateLastBTokenBalance(assetInfo[_assetName]);
+    }
+
+    // @notice Allows the user to fully repay his debt
+    function repayFull(string memory _assetName) external update(msg.sender) nonReentrant {
+        uint256 fullDebtAmount = debts[msg.sender][_assetName];
+        _repay(_assetName, fullDebtAmount, msg.sender);
     }
 
     // @notice Needed to transfer collateral position to adapter
@@ -280,6 +279,8 @@ contract Sio2Adapter is Initializable, OwnableUpgradeable, ReentrancyGuardUpgrad
 
         // update user's income debts for sTokens and collateral rewards
         _updateUserCollateralIncomeDebts(user);
+
+        emit AddSToken(msg.sender, _amount);
     }
 
     // @notice Allows owner to add new asset
@@ -377,7 +378,7 @@ contract Sio2Adapter is Initializable, OwnableUpgradeable, ReentrancyGuardUpgrad
         _repay(_debtAsset, _debtToCover, _user);
 
         // counting collateral before sending
-        (, uint256 liquidationPenalty) = getAssetParameters(asset.addr);
+        (, uint256 liquidationPenalty) = _getAssetParameters(asset.addr);
         uint256 collateralToSendInUSD = _toUSD(asset.addr, _debtToCover) * liquidationPenalty / RISK_PARAMS_PRECISION;
         uint256 collateralToSend = _fromUSD(address(nastr), collateralToSendInUSD);
         
@@ -389,6 +390,8 @@ contract Sio2Adapter is Initializable, OwnableUpgradeable, ReentrancyGuardUpgrad
 
         // send collateral with lp to liquidator
         IERC20Upgradeable(asset.addr).safeTransfer(msg.sender, collateralToSend);
+
+        emit LiquidationCall(msg.sender, _user, _debtAsset, _debtToCover);
     }
 
     // @dev to get HF for check healthy of user position
@@ -462,6 +465,8 @@ contract Sio2Adapter is Initializable, OwnableUpgradeable, ReentrancyGuardUpgrad
         rewardPool -= rewardsToClaim;
 
         rewardToken.safeTransfer(msg.sender, rewardsToClaim);
+
+        emit ClaimRewards(msg.sender, rewardsToClaim);
     }
 
     // @notice Withdraw revenue by owner
@@ -475,6 +480,8 @@ contract Sio2Adapter is Initializable, OwnableUpgradeable, ReentrancyGuardUpgrad
         revenuePool -= _amount;
 
         rewardToken.safeTransfer(msg.sender, _amount);
+
+        emit WithdrawRevenut(msg.sender, _amount);
     }
 
     function _repay(string memory _assetName, uint256 _amount, address _user) private {
@@ -501,6 +508,8 @@ contract Sio2Adapter is Initializable, OwnableUpgradeable, ReentrancyGuardUpgrad
         // approve asset for pool and repay
         asset.approve(address(pool), _amount);
         pool.repay(assetAddress, _amount, 2, address(this));
+
+        emit Repay(msg.sender, _user, _assetName, _amount);
     }
 
     // @notice Removes asset from user's assets list
@@ -684,7 +693,8 @@ contract Sio2Adapter is Initializable, OwnableUpgradeable, ReentrancyGuardUpgrad
         }
     }
 
-    function getAssetParameters(address _assetAddr) public view returns (
+    // @dev change to private
+    function _getAssetParameters(address _assetAddr) public view returns (
         uint256 liquidationThreshold,
         uint256 liquidationPenalty
         ) {
@@ -712,6 +722,8 @@ contract Sio2Adapter is Initializable, OwnableUpgradeable, ReentrancyGuardUpgrad
 
             lastUpdatedBlock = block.number;
         }
+
+        emit Updates(msg.sender, _user);
     }
 
     function _updateLastSTokenBalance() private {
@@ -743,8 +755,8 @@ contract Sio2Adapter is Initializable, OwnableUpgradeable, ReentrancyGuardUpgrad
         _user.collateralRewardDebt = _user.collateralAmount * accCollateralRewardsPerShare / REWARDS_PRECISION;
     }
     
-    // @dev will be deleted
-    function init2() public {
+    // @dev setup to get collateral info
+    function setup() public onlyOwner {
         (, , , , collateralLTV, ) = pool.getUserAccountData(address(this));
         ( , , , , collateralLT, ) = pool.getUserAccountData(address(this));
     }
