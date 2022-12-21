@@ -88,11 +88,7 @@ contract Sio2Adapter is Initializable, OwnableUpgradeable, ReentrancyGuardUpgrad
     //Events
     event Supply(address indexed user, uint256 indexed amount);
     event Withdraw(address indexed user, uint256 indexed amount);
-    event AddAsset(
-        address owner,
-        string indexed assetName,
-        address indexed assetAddress
-    );
+    event AddAsset(address owner, string indexed assetName, address indexed assetAddress);
     event RemoveAsset(address owner, string indexed assetName);
     event Borrow(address indexed who, string indexed assetName, uint256 indexed amount);
     event AddSToken(address indexed who, uint256 indexed amount);
@@ -399,8 +395,8 @@ contract Sio2Adapter is Initializable, OwnableUpgradeable, ReentrancyGuardUpgrad
     function getHF(address _user) public update(_user) returns (uint256 hf) {
         uint256 debtUSD = _getDebtUSD(_user);
         require(debtUSD > 0, "User has no debts");
-
-        hf = userInfo[_user].collateralAmount * collateralLT * 1e18 / RISK_PARAMS_PRECISION / debtUSD;
+        uint256 collateralUSD = _toUSD(address(nastr), userInfo[_user].collateralAmount);
+        hf = collateralUSD * collateralLT * 1e18 / RISK_PARAMS_PRECISION / debtUSD;
     }
 
     function estimateHF(address _user) public view returns (uint256 hf) {
