@@ -399,20 +399,20 @@ contract Sio2Adapter is Initializable, OwnableUpgradeable, ReentrancyGuardUpgrad
         hf = collateralUSD * collateralLT * 1e18 / RISK_PARAMS_PRECISION / debtUSD;
     }
 
-    function estimateHF(address _user) public view returns (uint256 hf) {
+    function estimateHF(address _user) public view returns (uint256, uint256, uint256) {
         User memory user = userInfo[_user];
 
         // get est collateral accRPS
-        uint256 estAccCollateralRPS = accCollateralRewardsPerShare;
+        uint256 estAccSTokensPerShare = accSTokensPerShare;
         uint256 estUserCollateral = user.collateralAmount;
 
         if (snastrToken.balanceOf(address(this)) > lastSTokenBalance) {
-            estAccCollateralRPS += ((snastrToken.balanceOf(address(this)) - lastSTokenBalance) *
+            estAccSTokensPerShare += ((snastrToken.balanceOf(address(this)) - lastSTokenBalance) *
                     REWARDS_PRECISION) / totalSupply;
         }
 
         // cals est user's collateral
-        estUserCollateral += estUserCollateral * estAccCollateralRPS / 
+        estUserCollateral += estUserCollateral * estAccSTokensPerShare / 
             REWARDS_PRECISION - user.sTokensIncomeDebt;
 
         uint256 collateralUSD = _toUSD(address(nastr), estUserCollateral);
@@ -421,16 +421,15 @@ contract Sio2Adapter is Initializable, OwnableUpgradeable, ReentrancyGuardUpgrad
         // calc est user's debt
         uint256 debtUSD;
         for (uint256 i; i < user.borrowedAssets.length;) {
-            string memory assetName = user.borrowedAssets[i];
-            Asset memory asset = assetInfo[assetName];
+            Asset memory asset = assetInfo[user.borrowedAssets[i]];
 
-            uint256 bTokenBalance = IERC20Upgradeable(asset.addr).balanceOf(address(this));
-            uint256 debt = debts[user.addr][assetName];
+            // uint256 bTokenBalance = IERC20Upgradeable(asset.addr).balanceOf(address(this));
+            uint256 debt = debts[user.addr][asset.name];
             uint256 income;
             uint256 estAccBTokenRPS = asset.accBTokensPerShare;
 
-            if (bTokenBalance > asset.lastBTokenBalance) {
-                income = bTokenBalance - asset.lastBTokenBalance;
+            if (IERC20Upgradeable(asset.bTokenAddress).balanceOf(address(this)) > asset.lastBTokenBalance) {
+                income = IERC20Upgradeable(asset.bTokenAddress).balanceOf(address(this)) - asset.lastBTokenBalance;
             }
 
             if (asset.totalBorrowed > 0 && income > 0) {
@@ -446,7 +445,8 @@ contract Sio2Adapter is Initializable, OwnableUpgradeable, ReentrancyGuardUpgrad
         // calc hf
         require(debtUSD > 0, "User has no debts");
 
-        hf = collateralUSD * collateralLT * 1e18 / RISK_PARAMS_PRECISION / debtUSD;
+        uint256 hf = collateralUSD * collateralLT * 1e18 / RISK_PARAMS_PRECISION / debtUSD;
+        return (hf, collateralUSD, debtUSD);
     }
 
     // @info Claim rewards by user
