@@ -45,6 +45,7 @@ contract Sio2Adapter is Initializable, OwnableUpgradeable, ReentrancyGuardUpgrad
 
     uint256 private constant REWARDS_PRECISION = 1e12; // A big number to perform mul and div operations
     uint256 private constant RISK_PARAMS_PRECISION = 1e4;
+    uint256 private constant DOT_PRECISION = 1e8;
     uint256 private constant PRICE_PRECISION = 1e8;
     uint256 private constant SHARES_PRECISION = 1e36;
     uint256 private constant COLLATERAL_REWARDS_WEIGHT = 5; // 5% of all sio2 collateral rewards go to the nASTR pool
@@ -205,6 +206,11 @@ contract Sio2Adapter is Initializable, OwnableUpgradeable, ReentrancyGuardUpgrad
             "Not enough collateral to borrow"
         );
         require(assetAddr != address(0), "Wrong asset!");
+
+        // convert price to correct format in case of dot borrowings
+        if (assetInfo[_assetName].addr == assetInfo["DOT"].addr) {
+            _amount /= DOT_PRECISION;
+        }
 
         debts[msg.sender][_assetName] += _amount;
         assetInfo[_assetName].totalBorrowed += _amount;
@@ -483,6 +489,11 @@ contract Sio2Adapter is Initializable, OwnableUpgradeable, ReentrancyGuardUpgrad
     function _repay(string memory _assetName, uint256 _amount, address _user) private {
         address assetAddress = assetInfo[_assetName].addr;
         IERC20Upgradeable asset = IERC20Upgradeable(assetAddress);
+
+        // convert price to correct format in case of dot borrowings
+        if (assetInfo[_assetName].addr == assetInfo["DOT"].addr) {
+            _amount /= DOT_PRECISION;
+        }
 
         // check balance of user or liquidator
         require(debts[_user][_assetName] > 0, "The user has no debt in this asset");
