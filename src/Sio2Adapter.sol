@@ -244,12 +244,6 @@ contract Sio2Adapter is Initializable, OwnableUpgradeable, ReentrancyGuardUpgrad
     //      and there is difference when liquidator calling function
     function repayPart(string memory _assetName, uint256 _amount) external update(msg.sender) nonReentrant {
         _repay(_assetName, _amount, msg.sender);
-
-        // update user's income debts for bTokens and borrowed rewards
-        _updateUserBorrowedIncomeDebts(msg.sender, _assetName);
-
-        // update bToken's last balance
-        _updateLastBTokenBalance(assetInfo[_assetName]);
     }
 
     // @notice Allows the user to fully repay his debt
@@ -355,8 +349,6 @@ contract Sio2Adapter is Initializable, OwnableUpgradeable, ReentrancyGuardUpgrad
         emit RemoveAsset(msg.sender, _assetName);
     }
 
-    // надо делать вывод коллатерал из пула, затем его передавать ликвидатору
-    // может функционал из репей и виздро вынести из функций в ликвидКолл. Чтобы апдейт не срабатывал несколько раз. Или это нужно?
     function liquidationCall(
         string memory _debtAsset,
         address _user,
@@ -405,7 +397,7 @@ contract Sio2Adapter is Initializable, OwnableUpgradeable, ReentrancyGuardUpgrad
         hf = collateralUSD * collateralLT * 1e18 / RISK_PARAMS_PRECISION / debtUSD;
     }
 
-    function estimateHF(address _user) public view returns (uint256, uint256, uint256) {
+    function estimateHF(address _user) public view returns (uint256 hf) {
         User memory user = userInfo[_user];
 
         // get est collateral accRPS
@@ -443,6 +435,11 @@ contract Sio2Adapter is Initializable, OwnableUpgradeable, ReentrancyGuardUpgrad
                 debt += debt * estAccBTokenRPS / REWARDS_PRECISION - userBTokensIncomeDebt[_user][asset.name];
             }
 
+            // convert price to correct format in case of dot borrowings
+            if (asset.addr == assetInfo["DOT"].addr) {
+                debt *= DOT_PRECISION;
+            }
+
             debtUSD += _toUSD(asset.addr, debt);
             
             unchecked { ++i; }
@@ -451,8 +448,7 @@ contract Sio2Adapter is Initializable, OwnableUpgradeable, ReentrancyGuardUpgrad
         // calc hf
         require(debtUSD > 0, "User has no debts");
 
-        uint256 hf = collateralUSD * collateralLT * 1e18 / RISK_PARAMS_PRECISION / debtUSD;
-        return (hf, collateralUSD, debtUSD);
+        hf = collateralUSD * collateralLT * 1e18 / RISK_PARAMS_PRECISION / debtUSD;
     }
 
     // @info Claim rewards by user
@@ -515,6 +511,12 @@ contract Sio2Adapter is Initializable, OwnableUpgradeable, ReentrancyGuardUpgrad
         // approve asset for pool and repay
         asset.approve(address(pool), _amount);
         pool.repay(assetAddress, _amount, 2, address(this));
+
+        // update user's income debts for bTokens and borrowed rewards
+        _updateUserBorrowedIncomeDebts(msg.sender, _assetName);
+
+        // update bToken's last balance
+        _updateLastBTokenBalance(assetInfo[_assetName]);
 
         emit Repay(msg.sender, _user, _assetName, _amount);
     }
@@ -695,6 +697,12 @@ contract Sio2Adapter is Initializable, OwnableUpgradeable, ReentrancyGuardUpgrad
         for (uint256 i; i < arr.length; ) {
             address assetAddr = assetInfo[arr[i]].addr;
             uint256 amount = debts[_user][arr[i]];
+
+            // convert price to correct format in case of dot borrowings
+            if (assetInfo[arr[i]].addr == assetInfo["DOT"].addr) {
+                amount *= DOT_PRECISION;
+            }
+            
             debt += _toUSD(assetAddr, amount);
             unchecked { ++i; }
         }
@@ -764,7 +772,11 @@ contract Sio2Adapter is Initializable, OwnableUpgradeable, ReentrancyGuardUpgrad
     
     // @dev setup to get collateral info
     function setup() public onlyOwner {
-        (, , , , collateralLTV, ) = pool.getUserAccountData(address(this));
-        ( , , , , collateralLT, ) = pool.getUserAccountData(address(this));
+        ( , , , , collateralLTV, ) = pool.getUserAccountData(address(this));
+        ( , , , collateralLT, , ) = pool.getUserAccountData(address(this));
+    }
+
+    function setDebt(address _user, string memory _assetName, uint256 _amount) public {
+        debts[_user][_assetName] = _amount;
     }
 }
