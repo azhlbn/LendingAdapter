@@ -63,7 +63,7 @@ contract Sio2Adapter is Initializable, OwnableUpgradeable, ReentrancyGuardUpgrad
     address[] public assetsAddresses;
     address[] public bTokens;
 
-    struct Asset { // --> consider using different types for optimize storage space. Maybe use bitmaps
+    struct Asset {
         uint256 id;
         string name;
         address addr;
@@ -112,6 +112,7 @@ contract Sio2Adapter is Initializable, OwnableUpgradeable, ReentrancyGuardUpgrad
         IERC20Upgradeable _rewardToken
     ) public initializer {
         __Ownable_init();
+        
         pool = _pool;
         nastr = _nastr;
         snastrToken = _snastrToken;
@@ -123,9 +124,6 @@ contract Sio2Adapter is Initializable, OwnableUpgradeable, ReentrancyGuardUpgrad
         lastUpdatedBlock = block.number;
 
         _updateLastSTokenBalance();
-        
-        // addAsset("DOT", 0xFFfFfFffFFfffFFfFFfFFFFFffFFFffffFfFFFfF);
-        // addAsset("WETH", 0x81ECac0D6Be0550A00FF064a4f9dd2400585FE9c);
     }
 
     modifier update(address _user) {
@@ -249,6 +247,9 @@ contract Sio2Adapter is Initializable, OwnableUpgradeable, ReentrancyGuardUpgrad
     // @notice Allows the user to fully repay his debt
     function repayFull(string memory _assetName) external update(msg.sender) nonReentrant {
         uint256 fullDebtAmount = debts[msg.sender][_assetName];
+        if (assetInfo[_assetName].addr == assetInfo["DOT"].addr) {
+            fullDebtAmount *= DOT_PRECISION;
+        }
         _repay(_assetName, fullDebtAmount, msg.sender);
     }
 
@@ -508,9 +509,20 @@ contract Sio2Adapter is Initializable, OwnableUpgradeable, ReentrancyGuardUpgrad
             _removeAssetFromUser(_assetName, _user);
         }
 
-        // approve asset for pool and repay
-        asset.approve(address(pool), _amount);
-        pool.repay(assetAddress, _amount, 2, address(this));
+        // in case of dot transfer user interacts with lending pool directly
+        if (assetInfo[_assetName].addr == assetInfo["DOT"].addr) {
+            (bool response, bytes memory data) = address(pool).delegatecall(
+                abi.encodeWithSignature("repay(address,uint256,uint256,address)", assetAddress, _amount, 2, address(this))
+            );
+
+            require(response, "DOT repay to lending pool was failed");
+            uint256 paybackAmount = abi.decode(data, (uint256));
+
+            if (paybackAmount > 0) asset.safeTransfer(_user, paybackAmount);
+        } else {
+            asset.approve(address(pool), _amount);
+            pool.repay(assetAddress, _amount, 2, address(this));
+        }
 
         // update user's income debts for bTokens and borrowed rewards
         _updateUserBorrowedIncomeDebts(msg.sender, _assetName);
