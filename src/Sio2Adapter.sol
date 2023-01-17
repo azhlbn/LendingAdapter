@@ -8,10 +8,11 @@ import "@openzeppelin/contracts-upgradeable/security/ReentrancyGuardUpgradeable.
 import "./interfaces/ISio2LendingPool.sol";
 import "./interfaces/ISio2PriceOracle.sol";
 import "./interfaces/ISio2IncentivesController.sol";
+import "./Sio2AdapterAssetManager.sol";
 
 /* 
 TASKS:
-- fix visibilies
+- adjust visibilies
 - mb change uint types in structs
 - mb rename bToken to vdToken
 - add more comments
@@ -30,6 +31,7 @@ contract Sio2Adapter is Initializable, OwnableUpgradeable, ReentrancyGuardUpgrad
     IERC20Upgradeable public rewardToken;
     ISio2PriceOracle public priceOracle;
     ISio2IncentivesController public incentivesController; // used to extract risk parameters of an asset
+    Sio2AdapterAssetManager public assetManager;
 
     uint256 public totalSupply;
     uint256 public lastUpdatedBlock;
@@ -51,17 +53,16 @@ contract Sio2Adapter is Initializable, OwnableUpgradeable, ReentrancyGuardUpgrad
     uint256 private constant COLLATERAL_REWARDS_WEIGHT = 5; // 5% of all sio2 collateral rewards go to the nASTR pool
     uint256 public constant REVENUE_FEE = 10; // 10% of rewards goes to the revenue pool
 
-    mapping(string => Asset) public assetInfo;
+    address public constant DOT_ADDR = 0xFFfFfFffFFfffFFfFFfFFFFFffFFFffffFfFFFfF;
+
+    // mapping(string => Asset) public assetInfo;
     mapping(address => User) public userInfo;
     mapping(address => mapping(string => uint256)) public debts;
     mapping(address => mapping(string => uint256)) public userBorrowedAssetID;
     mapping(address => mapping(string => uint256)) public userBTokensIncomeDebt;
     mapping(address => mapping(string => uint256)) public userBorrowedRewardDebt;
 
-    string[] public assets;
     address[] public users;
-    address[] public assetsAddresses;
-    address[] public bTokens;
 
     struct Asset {
         uint256 id;
@@ -89,8 +90,6 @@ contract Sio2Adapter is Initializable, OwnableUpgradeable, ReentrancyGuardUpgrad
     //Events
     event Supply(address indexed user, uint256 indexed amount);
     event Withdraw(address indexed user, uint256 indexed amount);
-    event AddAsset(address owner, string indexed assetName, address indexed assetAddress);
-    event RemoveAsset(address owner, string indexed assetName);
     event Borrow(address indexed who, string indexed assetName, uint256 indexed amount);
     event AddSToken(address indexed who, uint256 indexed amount);
     event LiquidationCall(address indexed liquidatorAddr, address indexed userAddr, string indexed debtAsset, uint256 debtToCover);
@@ -109,16 +108,19 @@ contract Sio2Adapter is Initializable, OwnableUpgradeable, ReentrancyGuardUpgrad
         IERC20Upgradeable _nastr,
         IERC20Upgradeable _snastrToken,
         ISio2IncentivesController _incentivesController,
-        IERC20Upgradeable _rewardToken
+        IERC20Upgradeable _rewardToken,
+        Sio2AdapterAssetManager _assetManager
+
     ) public initializer {
         __Ownable_init();
         
+        assetManager = _assetManager;
         pool = _pool;
         nastr = _nastr;
         snastrToken = _snastrToken;
         rewardToken = _rewardToken;
         incentivesController = _incentivesController;
-        bTokens.push(address(_snastrToken));
+        assetManager.addBTokens(address(_snastrToken));
         priceOracle = ISio2PriceOracle(0x5f7c3639A854a27DFf64B320De5C9CAF9C4Bd323);
         totalRewardsWeight += COLLATERAL_REWARDS_WEIGHT;
         lastUpdatedBlock = block.number;
@@ -197,7 +199,7 @@ contract Sio2Adapter is Initializable, OwnableUpgradeable, ReentrancyGuardUpgrad
     }
 
     function borrow(string memory _assetName, uint256 _amount) external update(msg.sender) nonReentrant {
-        address assetAddr = assetInfo[_assetName].addr;
+        (,,address assetAddr,,,,,,,) = assetManager.assetInfo(_assetName);
         (uint256 availableColToBorrow, ) = _availableCollateralUSD(msg.sender);
         require(
             _toUSD(assetAddr, _amount) <= availableColToBorrow,
@@ -205,13 +207,16 @@ contract Sio2Adapter is Initializable, OwnableUpgradeable, ReentrancyGuardUpgrad
         );
         require(assetAddr != address(0), "Wrong asset!");
 
+        // check exists until issue with dot approve not solved
+        require(assetAddr != DOT_ADDR, "Not allowed to borrow DOT");
+
         // convert price to correct format in case of dot borrowings
-        if (assetInfo[_assetName].addr == assetInfo["DOT"].addr) {
+        if (assetAddr == DOT_ADDR) {
             _amount /= DOT_PRECISION;
         }
 
         debts[msg.sender][_assetName] += _amount;
-        assetInfo[_assetName].totalBorrowed += _amount;
+        assetManager.increaseAssetsTotalBorrowed(_assetName, _amount);
 
         User storage user = userInfo[msg.sender];
 
@@ -231,7 +236,7 @@ contract Sio2Adapter is Initializable, OwnableUpgradeable, ReentrancyGuardUpgrad
         _updateUserBorrowedIncomeDebts(user.addr, _assetName);
 
         // update bToken's last balance
-        _updateLastBTokenBalance(assetInfo[_assetName]);
+        assetManager.updateLastBTokenBalance(_assetName);
 
         IERC20Upgradeable(assetAddr).safeTransfer(msg.sender, _amount);
 
@@ -246,8 +251,9 @@ contract Sio2Adapter is Initializable, OwnableUpgradeable, ReentrancyGuardUpgrad
 
     // @notice Allows the user to fully repay his debt
     function repayFull(string memory _assetName) external update(msg.sender) nonReentrant {
+        (,,address assetAddr,,,,,,,) = assetManager.assetInfo(_assetName);
         uint256 fullDebtAmount = debts[msg.sender][_assetName];
-        if (assetInfo[_assetName].addr == assetInfo["DOT"].addr) {
+        if (assetAddr == DOT_ADDR) {
             fullDebtAmount *= DOT_PRECISION;
         }
         _repay(_assetName, fullDebtAmount, msg.sender);
@@ -280,83 +286,13 @@ contract Sio2Adapter is Initializable, OwnableUpgradeable, ReentrancyGuardUpgrad
         emit AddSToken(msg.sender, _amount);
     }
 
-    // @notice Allows owner to add new asset
-    function addAsset(
-        string memory _assetName,
-        address _assetAddress,
-        address _bToken,
-        uint256 _rewardsWeight
-    ) external onlyOwner {
-        require(assetInfo[_assetName].addr == address(0), "Asset already added");
-        require(_assetAddress != address(0), "Zero address alarm!");
-
-        // get liquidationThreshold for asset from sio2
-        DataTypes.ReserveConfigurationMap memory data = pool.getConfiguration(_assetAddress);
-        uint256 lt = data.getLiquidationThreshold();
-
-        Asset memory asset = Asset({
-            id: assets.length,
-            name: _assetName,
-            addr: _assetAddress,
-            bTokenAddress: _bToken,
-            liquidationThreshold: lt,
-            lastBTokenBalance: IERC20Upgradeable(_bToken).balanceOf(address(this)),
-            accBTokensPerShare: 0,
-            totalBorrowed: 0,
-            rewardsWeight: _rewardsWeight,
-            accBorrowedRewardsPerShare: 0
-        });
-
-        assets.push(asset.name);
-        assetsAddresses.push(asset.addr);
-        assetInfo[_assetName] = asset;
-        bTokens.push(_bToken);
-        totalRewardsWeight += _rewardsWeight;
-
-        emit AddAsset(msg.sender, _assetName, _assetAddress);
-    }
-
-    // @notice Removes an asset
-    function removeAsset(string memory _assetName) external onlyOwner {
-        require(
-            assetInfo[_assetName].addr != address(0),
-            "There is no such asset"
-        );
-
-        Asset memory asset = assetInfo[_assetName];
-
-        // remove from assets
-        string memory lastAsset = assets[assets.length - 1];
-        assets[asset.id] = lastAsset;
-        assets.pop();
-
-        // remove from assetsAddresses
-        address lastAddr = assetsAddresses[assetsAddresses.length - 1];
-        assetsAddresses[asset.id] = lastAddr;
-        assetsAddresses.pop();
-
-        // remove addr from bTokens
-        address lastBAddr = bTokens[bTokens.length - 1];
-        bTokens[asset.id] = lastBAddr;
-        bTokens.pop();
-
-        // update totalRewardsWeight
-        totalRewardsWeight -= asset.rewardsWeight;
-
-        // update id of last asset and remove deleted struct
-        assetInfo[lastAsset].id = asset.id;
-        delete assetInfo[_assetName];
-
-        emit RemoveAsset(msg.sender, _assetName);
-    }
-
     function liquidationCall(
         string memory _debtAsset,
         address _user,
         uint256 _debtToCover
     ) external update(_user) {
         User storage user = userInfo[_user];
-        Asset memory asset = assetInfo[_debtAsset];
+        (,,address debtAssetAddr,,,,,,,) = assetManager.assetInfo(_debtAsset);
 
         // check user HF and update state
         require(getHF(_user) < 1, "User has healthy enough position");
@@ -373,8 +309,8 @@ contract Sio2Adapter is Initializable, OwnableUpgradeable, ReentrancyGuardUpgrad
         _repay(_debtAsset, _debtToCover, _user);
 
         // counting collateral before sending
-        (, uint256 liquidationPenalty) = _getAssetParameters(asset.addr);
-        uint256 collateralToSendInUSD = _toUSD(asset.addr, _debtToCover) * liquidationPenalty / RISK_PARAMS_PRECISION;
+        (, uint256 liquidationPenalty) = _getAssetParameters(debtAssetAddr);
+        uint256 collateralToSendInUSD = _toUSD(debtAssetAddr, _debtToCover) * liquidationPenalty / RISK_PARAMS_PRECISION;
         uint256 collateralToSend = _fromUSD(address(nastr), collateralToSendInUSD);
         
         // decrease user's collateral amount
@@ -384,7 +320,7 @@ contract Sio2Adapter is Initializable, OwnableUpgradeable, ReentrancyGuardUpgrad
         _updateUserCollateralIncomeDebts(user);
 
         // send collateral with lp to liquidator
-        IERC20Upgradeable(asset.addr).safeTransfer(msg.sender, collateralToSend);
+        IERC20Upgradeable(debtAssetAddr).safeTransfer(msg.sender, collateralToSend);
 
         emit LiquidationCall(msg.sender, _user, _debtAsset, _debtToCover);
     }
@@ -418,38 +354,51 @@ contract Sio2Adapter is Initializable, OwnableUpgradeable, ReentrancyGuardUpgrad
 
         // get est borrowed accRPS for assets
         // calc est user's debt
-        uint256 debtUSD;
-        for (uint256 i; i < user.borrowedAssets.length;) {
-            Asset memory asset = assetInfo[user.borrowedAssets[i]];
-
-            // uint256 bTokenBalance = IERC20Upgradeable(asset.addr).balanceOf(address(this));
-            uint256 debt = debts[user.addr][asset.name];
-            uint256 income;
-            uint256 estAccBTokenRPS = asset.accBTokensPerShare;
-
-            if (IERC20Upgradeable(asset.bTokenAddress).balanceOf(address(this)) > asset.lastBTokenBalance) {
-                income = IERC20Upgradeable(asset.bTokenAddress).balanceOf(address(this)) - asset.lastBTokenBalance;
-            }
-
-            if (asset.totalBorrowed > 0 && income > 0) {
-                estAccBTokenRPS += income * REWARDS_PRECISION / asset.totalBorrowed;
-                debt += debt * estAccBTokenRPS / REWARDS_PRECISION - userBTokensIncomeDebt[_user][asset.name];
-            }
-
-            // convert price to correct format in case of dot borrowings
-            if (asset.addr == assetInfo["DOT"].addr) {
-                debt *= DOT_PRECISION;
-            }
-
-            debtUSD += _toUSD(asset.addr, debt);
-            
-            unchecked { ++i; }
-        }
+        uint256 debtUSD = _calcEstimateUserDebtUSD(user);
         
         // calc hf
         require(debtUSD > 0, "User has no debts");
 
         hf = collateralUSD * collateralLT * 1e18 / RISK_PARAMS_PRECISION / debtUSD;
+    }
+
+    function _calcEstimateUserDebtUSD(User memory user) private view returns (uint256 debtUSD) {
+        for (uint256 i; i < user.borrowedAssets.length;) {
+            (
+                , 
+                string memory assetName,
+                address assetAddr,
+                address assetBTokenAddress,
+                ,
+                uint256 assetLastBTokenBalance,
+                uint256 assetTotalBorrowed,
+                ,
+                uint256 assetAccBTokensPerShare,
+            ) = assetManager.assetInfo(user.borrowedAssets[i]);
+
+            // uint256 bTokenBalance = IERC20Upgradeable(asset.addr).balanceOf(address(this));
+            uint256 debt = debts[user.addr][assetName];
+            uint256 income;
+            uint256 estAccBTokenRPS = assetAccBTokensPerShare;
+
+            if (IERC20Upgradeable(assetBTokenAddress).balanceOf(address(this)) > assetLastBTokenBalance) {
+                income = IERC20Upgradeable(assetBTokenAddress).balanceOf(address(this)) - assetLastBTokenBalance;
+            }
+
+            if (assetTotalBorrowed > 0 && income > 0) {
+                estAccBTokenRPS += income * REWARDS_PRECISION / assetTotalBorrowed;
+                debt += debt * estAccBTokenRPS / REWARDS_PRECISION - userBTokensIncomeDebt[user.addr][assetName];
+            }
+
+            // convert price to correct format in case of dot borrowings
+            if (assetAddr == DOT_ADDR) {
+                debt *= DOT_PRECISION;
+            }
+
+            debtUSD += _toUSD(assetAddr, debt);
+            
+            unchecked { ++i; }
+        }
     }
 
     // @info Claim rewards by user
@@ -484,11 +433,11 @@ contract Sio2Adapter is Initializable, OwnableUpgradeable, ReentrancyGuardUpgrad
     }
 
     function _repay(string memory _assetName, uint256 _amount, address _user) private {
-        address assetAddress = assetInfo[_assetName].addr;
+        (,,address assetAddress,,,,,,,) = assetManager.assetInfo(_assetName);
         IERC20Upgradeable asset = IERC20Upgradeable(assetAddress);
 
         // convert price to correct format in case of dot borrowings
-        if (assetInfo[_assetName].addr == assetInfo["DOT"].addr) {
+        if (assetAddress == DOT_ADDR) {
             _amount /= DOT_PRECISION;
         }
 
@@ -502,33 +451,21 @@ contract Sio2Adapter is Initializable, OwnableUpgradeable, ReentrancyGuardUpgrad
         asset.safeTransferFrom(msg.sender, address(this), _amount);
 
         debts[_user][_assetName] -= _amount;
-        assetInfo[_assetName].totalBorrowed -= _amount;
+        assetManager.decreaseAssetsTotalBorrowed(_assetName, _amount);
 
         // remove the asset from the user's borrowedAssets if he is no longer a debtor
         if (debts[_user][_assetName] == 0) {
             _removeAssetFromUser(_assetName, _user);
         }
 
-        // in case of dot transfer user interacts with lending pool directly
-        if (assetInfo[_assetName].addr == assetInfo["DOT"].addr) {
-            (bool response, bytes memory data) = address(pool).delegatecall(
-                abi.encodeWithSignature("repay(address,uint256,uint256,address)", assetAddress, _amount, 2, address(this))
-            );
-
-            require(response, "DOT repay to lending pool was failed");
-            uint256 paybackAmount = abi.decode(data, (uint256));
-
-            if (paybackAmount > 0) asset.safeTransfer(_user, paybackAmount);
-        } else {
-            asset.approve(address(pool), _amount);
-            pool.repay(assetAddress, _amount, 2, address(this));
-        }
+        asset.approve(address(pool), _amount);
+        pool.repay(assetAddress, _amount, 2, address(this));
 
         // update user's income debts for bTokens and borrowed rewards
         _updateUserBorrowedIncomeDebts(msg.sender, _assetName);
 
         // update bToken's last balance
-        _updateLastBTokenBalance(assetInfo[_assetName]);
+        assetManager.updateLastBTokenBalance(_assetName);
 
         emit Repay(msg.sender, _user, _assetName, _amount);
     }
@@ -545,6 +482,8 @@ contract Sio2Adapter is Initializable, OwnableUpgradeable, ReentrancyGuardUpgrad
     }
 
     function _harvestRewards(uint256 _pendingRewards) public { // <= change to private
+        address[] memory bTokens = assetManager.getBTokens();
+        string[] memory assets = assetManager.getAssetsNames();
         // receiving rewards from incentives controller
         // this rewards consists of collateral and debt rewards
         uint256 receivedRewards = incentivesController.claimRewards(
@@ -573,18 +512,28 @@ contract Sio2Adapter is Initializable, OwnableUpgradeable, ReentrancyGuardUpgrad
         // set accumulated rewards per share for each borrowed asset
         // needed for sio2 rewards distribution
         for (uint256 i; i < assets.length;) {
-            Asset storage asset = assetInfo[assets[i]];
+            (
+                ,
+                ,
+                ,
+                address assetBTokenAddress,
+                ,
+                ,
+                uint256 assetTotalBorrowed,
+                uint256 assetRewardsWeight,
+                ,
+            ) = assetManager.assetInfo(assets[i]);
 
-            if (asset.totalBorrowed > 0) {
-                IERC20Upgradeable bToken = IERC20Upgradeable(assetInfo[assets[i]].bTokenAddress);
+            if (assetTotalBorrowed > 0) {
+                IERC20Upgradeable bToken = IERC20Upgradeable(assetBTokenAddress);
 
                 uint256 shareOfAsset = bToken.balanceOf(address(this)) * SHARES_PRECISION / bToken.totalSupply();
 
                 // calc rewards amount for asset according to its weight and pool share
-                uint256 assetRewards = rewardsToDistribute * shareOfAsset * asset.rewardsWeight / 
+                uint256 assetRewards = rewardsToDistribute * shareOfAsset * assetRewardsWeight / 
                     (sumOfAssetShares * totalRewardsWeight);
 
-                asset.accBorrowedRewardsPerShare += assetRewards * REWARDS_PRECISION / asset.totalBorrowed;
+                assetManager.increaseAccBorrowedRewardsPerShare(assets[i], assetRewards);
             }
             
             unchecked { ++i; }
@@ -598,6 +547,7 @@ contract Sio2Adapter is Initializable, OwnableUpgradeable, ReentrancyGuardUpgrad
 
     function _updatePools() public { // <= change to private
         uint256 currentSTokenBalance = snastrToken.balanceOf(address(this));
+        string[] memory assets = assetManager.getAssetsNames();
 
         // if sToken balance was changed, lastSTokenBalance updates
         if (currentSTokenBalance > lastSTokenBalance) {
@@ -607,16 +557,26 @@ contract Sio2Adapter is Initializable, OwnableUpgradeable, ReentrancyGuardUpgrad
 
         // update bToken debts
         for (uint256 i; i < assets.length; ) {
-            Asset storage asset = assetInfo[assets[i]];
+            (
+                ,
+                ,
+                ,
+                address assetBTokenAddress,
+                ,
+                uint256 assetLastBTokenBalance,
+                uint256 assetTotalBorrowed,
+                ,
+                ,
+            ) = assetManager.assetInfo(assets[i]);
 
-            if (asset.totalBorrowed > 0) {
-                uint256 bTokenBalance = IERC20Upgradeable(assetInfo[assets[i]].bTokenAddress).balanceOf(address(this));
+            if (assetTotalBorrowed > 0) {
+                uint256 bTokenBalance = IERC20Upgradeable(assetBTokenAddress).balanceOf(address(this));
                 uint256 income;
 
-                if (bTokenBalance > asset.lastBTokenBalance) {
-                    income = bTokenBalance - asset.lastBTokenBalance;
-                    asset.accBTokensPerShare += income * REWARDS_PRECISION / asset.totalBorrowed;
-                    asset.lastBTokenBalance = bTokenBalance;
+                if (bTokenBalance > assetLastBTokenBalance) {
+                    income = bTokenBalance - assetLastBTokenBalance;
+                    assetManager.increaseAccBTokensPerShare(assets[i], income);
+                    assetManager.updateLastBTokenBalance(assets[i]);
                 }
             }
 
@@ -629,23 +589,34 @@ contract Sio2Adapter is Initializable, OwnableUpgradeable, ReentrancyGuardUpgrad
 
         // moving by borrowing assets for current user
         for (uint256 i; i < user.borrowedAssets.length; ) {
-            Asset storage asset = assetInfo[user.borrowedAssets[i]];
+            (
+                ,
+                string memory assetName,
+                ,
+                ,
+                ,
+                ,
+                ,
+                ,
+                uint256 assetAccBTokensPerShare,
+                uint256 assetAccBorrowedRewardsPerShare
+            ) = assetManager.assetInfo(user.borrowedAssets[i]);
 
             // update bToken debt
-            uint256 debtToHarvest = (debts[_user][asset.name] * asset.accBTokensPerShare) / // <= CHECK
-                REWARDS_PRECISION - userBTokensIncomeDebt[_user][asset.name];
-            debts[_user][asset.name] += debtToHarvest;
-            userBTokensIncomeDebt[_user][asset.name] = (debts[_user][asset.name] * asset.accBTokensPerShare) /
+            uint256 debtToHarvest = (debts[_user][assetName] * assetAccBTokensPerShare) / // <= CHECK
+                REWARDS_PRECISION - userBTokensIncomeDebt[_user][assetName];
+            debts[_user][assetName] += debtToHarvest;
+            userBTokensIncomeDebt[_user][assetName] = (debts[_user][assetName] * assetAccBTokensPerShare) /
                 REWARDS_PRECISION;
 
             // harvest sio2 rewards amount for each borrowed asset
-            user.rewards += debts[_user][asset.name] * asset.accBorrowedRewardsPerShare / 
-            REWARDS_PRECISION - userBorrowedRewardDebt[_user][asset.name];
+            user.rewards += debts[_user][assetName] * assetAccBorrowedRewardsPerShare / 
+            REWARDS_PRECISION - userBorrowedRewardDebt[_user][assetName];
 
-            userBorrowedRewardDebt[_user][asset.name] = debts[_user][asset.name] * asset.accBorrowedRewardsPerShare / REWARDS_PRECISION;
+            userBorrowedRewardDebt[_user][assetName] = debts[_user][assetName] * assetAccBorrowedRewardsPerShare / REWARDS_PRECISION;
 
             // update total amount of total borrowed for current asset
-            asset.totalBorrowed += debtToHarvest;
+            assetManager.increaseAssetsTotalBorrowed(assetName, debtToHarvest);
 
             unchecked { ++i; }
         }
@@ -707,11 +678,11 @@ contract Sio2Adapter is Initializable, OwnableUpgradeable, ReentrancyGuardUpgrad
         if (arr.length == 0) return 0;
 
         for (uint256 i; i < arr.length; ) {
-            address assetAddr = assetInfo[arr[i]].addr;
+            (,,address assetAddr,,,,,,,) = assetManager.assetInfo(arr[i]);
             uint256 amount = debts[_user][arr[i]];
 
             // convert price to correct format in case of dot borrowings
-            if (assetInfo[arr[i]].addr == assetInfo["DOT"].addr) {
+            if (assetAddr == DOT_ADDR) {
                 amount *= DOT_PRECISION;
             }
             
@@ -760,17 +731,18 @@ contract Sio2Adapter is Initializable, OwnableUpgradeable, ReentrancyGuardUpgrad
         }
     }
 
-    function _updateLastBTokenBalance(Asset storage _asset) private {
-        _asset.lastBTokenBalance = IERC20Upgradeable(_asset.bTokenAddress).balanceOf(address(this));
-    }
-
     function _updateUserBorrowedIncomeDebts(address _user, string memory _assetName) private {
+        (,,,,,,,,
+            uint256 assetAccBTokensPerShare, 
+            uint256 assetAccBorrowedRewardsPerShare
+        ) = assetManager.assetInfo(_assetName);
+
         // update rewardDebt for user's bTokens
-        userBTokensIncomeDebt[_user][_assetName] = debts[_user][_assetName] * assetInfo[_assetName].accBTokensPerShare /
+        userBTokensIncomeDebt[_user][_assetName] = debts[_user][_assetName] * assetAccBTokensPerShare /
             REWARDS_PRECISION;
 
         // update rewardDebt for user's borrowed rewards
-        userBorrowedRewardDebt[_user][_assetName] = debts[_user][_assetName] * assetInfo[_assetName].accBorrowedRewardsPerShare /
+        userBorrowedRewardDebt[_user][_assetName] = debts[_user][_assetName] * assetAccBorrowedRewardsPerShare /
             REWARDS_PRECISION;
     }
 
@@ -786,9 +758,5 @@ contract Sio2Adapter is Initializable, OwnableUpgradeable, ReentrancyGuardUpgrad
     function setup() public onlyOwner {
         ( , , , , collateralLTV, ) = pool.getUserAccountData(address(this));
         ( , , , collateralLT, , ) = pool.getUserAccountData(address(this));
-    }
-
-    function setDebt(address _user, string memory _assetName, uint256 _amount) public {
-        debts[_user][_assetName] = _amount;
     }
 }
