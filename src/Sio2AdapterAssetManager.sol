@@ -1,10 +1,10 @@
 pragma solidity 0.8.4;
 //SPDX-License-Identifier: MIT
 
-import "@openzeppelin/contracts/utils/AddressUpgradeable.sol";
-import "@openzeppelin/contracts/access/OwnableUpgradeable.sol";
-import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20Upgradeable.sol";
-import "@openzeppelin/contracts/security/ReentrancyGuardUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/utils/AddressUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/token/ERC20/utils/SafeERC20Upgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/security/ReentrancyGuardUpgradeable.sol";
 import "./interfaces/ISio2LendingPool.sol";
 // import "./interfaces/ISio2PriceOracle.sol";
 // import "./interfaces/ISio2IncentivesController.sol";
@@ -12,7 +12,6 @@ import "./Sio2Adapter.sol";
 
 /* 
 - add events
-- add role for adapter
  */
 
 contract Sio2AdapterAssetManager is Initializable, OwnableUpgradeable, ReentrancyGuardUpgradeable {
@@ -158,7 +157,7 @@ contract Sio2AdapterAssetManager is Initializable, OwnableUpgradeable, Reentranc
 
     function updateLastBTokenBalance(string memory _assetName) external onlyAdapter {
         Asset storage asset = assetInfo[_assetName];
-        asset.lastBTokenBalance = IERC20Upgradeable(asset.bTokenAddress).balanceOf(address(this));
+        asset.lastBTokenBalance = IERC20Upgradeable(asset.bTokenAddress).balanceOf(address(adapter));
     }
 
     function getBTokens() public view returns (address[] memory) {

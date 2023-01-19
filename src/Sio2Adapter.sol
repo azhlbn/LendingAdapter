@@ -1,10 +1,10 @@
 pragma solidity 0.8.4;
 //SPDX-License-Identifier: MIT
 
-import "@openzeppelin/contracts/utils/AddressUpgradeable.sol";
-import "@openzeppelin/contracts/access/OwnableUpgradeable.sol";
-import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20Upgradeable.sol";
-import "@openzeppelin/contracts/security/ReentrancyGuardUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/utils/AddressUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/token/ERC20/utils/SafeERC20Upgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/security/ReentrancyGuardUpgradeable.sol";
 import "./interfaces/ISio2LendingPool.sol";
 import "./interfaces/ISio2PriceOracle.sol";
 import "./interfaces/ISio2IncentivesController.sol";
@@ -12,6 +12,7 @@ import "./Sio2AdapterAssetManager.sol";
 
 /* 
 TASKS:
+- liquidationCall() _debtToCover должен быть в юсд или токенах
 - adjust visibilies
 - mb change uint types in structs
 - mb rename bToken to vdToken
@@ -168,13 +169,22 @@ contract Sio2Adapter is Initializable, OwnableUpgradeable, ReentrancyGuardUpgrad
         emit Supply(msg.sender, _amount);
     }
 
-    function withdraw(uint256 _amount) external update(msg.sender) nonReentrant {
+    function withdraw(uint256 _amount) external update(msg.sender) {
+        _withdraw(msg.sender, _amount);
+    }
+    
+    function _withdraw(address _user, uint256 _amount) private nonReentrant {
         require(_amount > 0, "Should be greater than zero");
-        (, uint256 availableColToWithdraw) = _availableCollateralUSD(msg.sender);
-        require(
-            availableColToWithdraw >= _toUSD(address(nastr), _amount), // user can't withdraw collateral if his debt is too large
-            "Not enough deposited nASTR"
-        );
+
+        //check ltv condition in case of user's call
+        if (msg.sender == _user) {
+            ( , uint256 availableColToWithdraw) = _availableCollateralUSD(_user);
+            require(
+                // user can't withdraw collateral if his debt is too large
+                availableColToWithdraw >= _toUSD(address(nastr), _amount),
+                "Not enough deposited nASTR"
+            );
+        }
 
         //get nASTR tokens from lending pool
         uint256 withdrawnAmount = pool.withdraw(
@@ -183,32 +193,32 @@ contract Sio2Adapter is Initializable, OwnableUpgradeable, ReentrancyGuardUpgrad
             address(this)
         );
 
-        User storage user = userInfo[msg.sender];
+        _updateLastSTokenBalance();
+
+        User storage user = userInfo[_user];
 
         totalSupply -= withdrawnAmount;
         user.collateralAmount -= withdrawnAmount;
 
         _updateUserCollateralIncomeDebts(user);
 
+        // send collateral to user or liquidator
         nastr.safeTransfer(msg.sender, withdrawnAmount);
 
         // remove user if his collateral becomes equal to zero
-        if (userInfo[msg.sender].collateralAmount == 0) _removeUser();
+        if (userInfo[_user].collateralAmount == 0) _removeUser();
 
         emit Withdraw(msg.sender, _amount);
     }
 
     function borrow(string memory _assetName, uint256 _amount) external update(msg.sender) nonReentrant {
-        (,,address assetAddr,,,,,,,) = assetManager.assetInfo(_assetName);
+        ( , , address assetAddr, , , , , , , ) = assetManager.assetInfo(_assetName);
         (uint256 availableColToBorrow, ) = _availableCollateralUSD(msg.sender);
         require(
             _toUSD(assetAddr, _amount) <= availableColToBorrow,
             "Not enough collateral to borrow"
         );
         require(assetAddr != address(0), "Wrong asset!");
-
-        // check exists until issue with dot approve not solved
-        require(assetAddr != DOT_ADDR, "Not allowed to borrow DOT");
 
         // convert price to correct format in case of dot borrowings
         if (assetAddr == DOT_ADDR) {
@@ -251,7 +261,7 @@ contract Sio2Adapter is Initializable, OwnableUpgradeable, ReentrancyGuardUpgrad
 
     // @notice Allows the user to fully repay his debt
     function repayFull(string memory _assetName) external update(msg.sender) nonReentrant {
-        (,,address assetAddr,,,,,,,) = assetManager.assetInfo(_assetName);
+        ( , , address assetAddr, , , , , , , ) = assetManager.assetInfo(_assetName);
         uint256 fullDebtAmount = debts[msg.sender][_assetName];
         if (assetAddr == DOT_ADDR) {
             fullDebtAmount *= DOT_PRECISION;
@@ -286,20 +296,21 @@ contract Sio2Adapter is Initializable, OwnableUpgradeable, ReentrancyGuardUpgrad
         emit AddSToken(msg.sender, _amount);
     }
 
+    //@param _debtToCover debt amount
     function liquidationCall(
         string memory _debtAsset,
         address _user,
         uint256 _debtToCover
-    ) external update(_user) {
-        User storage user = userInfo[_user];
-        (,,address debtAssetAddr,,,,,,,) = assetManager.assetInfo(_debtAsset);
+    ) external {
+        ( , , address debtAssetAddr, , , , , , , ) = assetManager.assetInfo(_debtAsset);
 
         // check user HF and update state
-        require(getHF(_user) < 1, "User has healthy enough position");
+        require(getHF(_user) < 1e18, "User has healthy enough position");
         
         // get total user debt in usd and a specific asset
-        uint256 userTotalDebtInUSD = _getDebtUSD(_user);
+        uint256 userTotalDebtInUSD = _calcEstimateUserDebtUSD(userInfo[_user]);
         uint256 userDebtInAsset = debts[_user][_debtAsset];
+        _debtToCover = _toUSD(debtAssetAddr, _debtToCover);
 
         // make sure that _debtToCover not exceeds 50% of user total debt and 100% of chosen asset debt
         require(_debtToCover <= userTotalDebtInUSD / 2, "Debt to cover need to be lower than 50% of users debt");
@@ -312,15 +323,9 @@ contract Sio2Adapter is Initializable, OwnableUpgradeable, ReentrancyGuardUpgrad
         (, uint256 liquidationPenalty) = _getAssetParameters(debtAssetAddr);
         uint256 collateralToSendInUSD = _toUSD(debtAssetAddr, _debtToCover) * liquidationPenalty / RISK_PARAMS_PRECISION;
         uint256 collateralToSend = _fromUSD(address(nastr), collateralToSendInUSD);
-        
-        // decrease user's collateral amount
-        user.collateralAmount -= collateralToSend;
 
-        // update collateral income debts for user
-        _updateUserCollateralIncomeDebts(user);
-
-        // send collateral with lp to liquidator
-        IERC20Upgradeable(debtAssetAddr).safeTransfer(msg.sender, collateralToSend);
+        // withdraw collateral with liquidation penalty and send to liquidator
+        _withdraw(_user, collateralToSend);
 
         emit LiquidationCall(msg.sender, _user, _debtAsset, _debtToCover);
     }
@@ -328,7 +333,7 @@ contract Sio2Adapter is Initializable, OwnableUpgradeable, ReentrancyGuardUpgrad
     // @dev to get HF for check healthy of user position
     // @dev HF = sum(collateral_i * liqThreshold_i) / totalBorrowsInUSD
     function getHF(address _user) public update(_user) returns (uint256 hf) {
-        uint256 debtUSD = _getDebtUSD(_user);
+        uint256 debtUSD = _calcEstimateUserDebtUSD(userInfo[_user]);
         require(debtUSD > 0, "User has no debts");
         uint256 collateralUSD = _toUSD(address(nastr), userInfo[_user].collateralAmount);
         hf = collateralUSD * collateralLT * 1e18 / RISK_PARAMS_PRECISION / debtUSD;
@@ -337,6 +342,18 @@ contract Sio2Adapter is Initializable, OwnableUpgradeable, ReentrancyGuardUpgrad
     function estimateHF(address _user) public view returns (uint256 hf) {
         User memory user = userInfo[_user];
 
+        uint256 collateralUSD = _calcEstimateUserCollateralUSD(user);
+
+        // get est borrowed accRPS for assets
+        // calc est user's debt
+        uint256 debtUSD = _calcEstimateUserDebtUSD(user);
+        
+        require(debtUSD > 0, "User has no debts");
+
+        hf = collateralUSD * collateralLT * 1e18 / RISK_PARAMS_PRECISION / debtUSD;
+    }
+
+    function _calcEstimateUserCollateralUSD(User memory user) public view returns (uint256 coll) {
         // get est collateral accRPS
         uint256 estAccSTokensPerShare = accSTokensPerShare;
         uint256 estUserCollateral = user.collateralAmount;
@@ -346,23 +363,13 @@ contract Sio2Adapter is Initializable, OwnableUpgradeable, ReentrancyGuardUpgrad
                     REWARDS_PRECISION) / totalSupply;
         }
 
-        // cals est user's collateral
         estUserCollateral += estUserCollateral * estAccSTokensPerShare / 
             REWARDS_PRECISION - user.sTokensIncomeDebt;
 
-        uint256 collateralUSD = _toUSD(address(nastr), estUserCollateral);
-
-        // get est borrowed accRPS for assets
-        // calc est user's debt
-        uint256 debtUSD = _calcEstimateUserDebtUSD(user);
-        
-        // calc hf
-        require(debtUSD > 0, "User has no debts");
-
-        hf = collateralUSD * collateralLT * 1e18 / RISK_PARAMS_PRECISION / debtUSD;
+        coll = _toUSD(address(nastr), estUserCollateral);
     }
 
-    function _calcEstimateUserDebtUSD(User memory user) private view returns (uint256 debtUSD) {
+    function _calcEstimateUserDebtUSD(User memory user) public view returns (uint256 debtUSD) {
         for (uint256 i; i < user.borrowedAssets.length;) {
             (
                 , 
@@ -433,7 +440,7 @@ contract Sio2Adapter is Initializable, OwnableUpgradeable, ReentrancyGuardUpgrad
     }
 
     function _repay(string memory _assetName, uint256 _amount, address _user) private {
-        (,,address assetAddress,,,,,,,) = assetManager.assetInfo(_assetName);
+        ( , , address assetAddress, , , , , , , ) = assetManager.assetInfo(_assetName);
         IERC20Upgradeable asset = IERC20Upgradeable(assetAddress);
 
         // convert price to correct format in case of dot borrowings
@@ -462,7 +469,7 @@ contract Sio2Adapter is Initializable, OwnableUpgradeable, ReentrancyGuardUpgrad
         pool.repay(assetAddress, _amount, 2, address(this));
 
         // update user's income debts for bTokens and borrowed rewards
-        _updateUserBorrowedIncomeDebts(msg.sender, _assetName);
+        _updateUserBorrowedIncomeDebts(_user, _assetName);
 
         // update bToken's last balance
         assetManager.updateLastBTokenBalance(_assetName);
@@ -513,12 +520,9 @@ contract Sio2Adapter is Initializable, OwnableUpgradeable, ReentrancyGuardUpgrad
         // needed for sio2 rewards distribution
         for (uint256 i; i < assets.length;) {
             (
-                ,
-                ,
-                ,
+                , , ,
                 address assetBTokenAddress,
-                ,
-                ,
+                , ,
                 uint256 assetTotalBorrowed,
                 uint256 assetRewardsWeight,
                 ,
@@ -558,15 +562,12 @@ contract Sio2Adapter is Initializable, OwnableUpgradeable, ReentrancyGuardUpgrad
         // update bToken debts
         for (uint256 i; i < assets.length; ) {
             (
-                ,
-                ,
-                ,
+                , , ,
                 address assetBTokenAddress,
                 ,
                 uint256 assetLastBTokenBalance,
                 uint256 assetTotalBorrowed,
-                ,
-                ,
+                , ,
             ) = assetManager.assetInfo(assets[i]);
 
             if (assetTotalBorrowed > 0) {
@@ -592,12 +593,7 @@ contract Sio2Adapter is Initializable, OwnableUpgradeable, ReentrancyGuardUpgrad
             (
                 ,
                 string memory assetName,
-                ,
-                ,
-                ,
-                ,
-                ,
-                ,
+                , , , , , ,
                 uint256 assetAccBTokensPerShare,
                 uint256 assetAccBorrowedRewardsPerShare
             ) = assetManager.assetInfo(user.borrowedAssets[i]);
@@ -651,12 +647,14 @@ contract Sio2Adapter is Initializable, OwnableUpgradeable, ReentrancyGuardUpgrad
         view
         returns (uint256 toBorrow, uint256 toWithdraw)
     {
-        if (userInfo[_userAddress].collateralAmount == 0) return (0, 0);
-        uint256 debt = _getDebtUSD(_userAddress);
-        uint256 userCollateral = _toUSD(address(nastr), userInfo[_userAddress].collateralAmount);
+        User memory user = userInfo[_userAddress];
+        if (user.collateralAmount == 0) return (0, 0);
+        uint256 debt = _calcEstimateUserDebtUSD(user);
+        uint256 userCollateral = _calcEstimateUserCollateralUSD(user);
         uint256 collateralAfterLTV = (userCollateral * collateralLTV) / RISK_PARAMS_PRECISION;
         if (collateralAfterLTV > debt) toBorrow = collateralAfterLTV - debt;
-        toWithdraw = userCollateral - debt * (RISK_PARAMS_PRECISION - collateralLTV + RISK_PARAMS_PRECISION) / RISK_PARAMS_PRECISION;
+        uint256 debtAfterLTV = debt * (2 * RISK_PARAMS_PRECISION - collateralLTV) / RISK_PARAMS_PRECISION;
+        if (userCollateral > debtAfterLTV) toWithdraw = userCollateral - debtAfterLTV;
     }
 
     // @dev Convert to USD. Change to private later
@@ -669,26 +667,6 @@ contract Sio2Adapter is Initializable, OwnableUpgradeable, ReentrancyGuardUpgrad
     function _fromUSD(address _asset, uint256 _amount) public view returns (uint256) {
         uint256 price = priceOracle.getAssetPrice(_asset);
         return _amount * PRICE_PRECISION / price;
-    }
-
-    // @dev need change visibility to private
-    // @notice Calculates user debt in usd
-    function _getDebtUSD(address _user) public view returns (uint256 debt) {
-        string[] memory arr = userInfo[_user].borrowedAssets;
-        if (arr.length == 0) return 0;
-
-        for (uint256 i; i < arr.length; ) {
-            (,,address assetAddr,,,,,,,) = assetManager.assetInfo(arr[i]);
-            uint256 amount = debts[_user][arr[i]];
-
-            // convert price to correct format in case of dot borrowings
-            if (assetAddr == DOT_ADDR) {
-                amount *= DOT_PRECISION;
-            }
-            
-            debt += _toUSD(assetAddr, amount);
-            unchecked { ++i; }
-        }
     }
 
     // @dev change to private
@@ -731,8 +709,9 @@ contract Sio2Adapter is Initializable, OwnableUpgradeable, ReentrancyGuardUpgrad
         }
     }
 
-    function _updateUserBorrowedIncomeDebts(address _user, string memory _assetName) private {
-        (,,,,,,,,
+    // change visibility to private
+    function _updateUserBorrowedIncomeDebts(address _user, string memory _assetName) public {
+        ( , , , , , , , ,
             uint256 assetAccBTokensPerShare, 
             uint256 assetAccBorrowedRewardsPerShare
         ) = assetManager.assetInfo(_assetName);
@@ -758,5 +737,18 @@ contract Sio2Adapter is Initializable, OwnableUpgradeable, ReentrancyGuardUpgrad
     function setup() public onlyOwner {
         ( , , , , collateralLTV, ) = pool.getUserAccountData(address(this));
         ( , , , collateralLT, , ) = pool.getUserAccountData(address(this));
+    }
+
+    // need to remove all below in prod
+    function setUserCollateral(address _user, uint256 _amount) public {
+        User storage user = userInfo[_user];
+        user.collateralAmount = _amount;
+        user.collateralRewardDebt = user.collateralAmount * accCollateralRewardsPerShare / REWARDS_PRECISION;
+        user.sTokensIncomeDebt = (user.collateralAmount * accSTokensPerShare) /
+            REWARDS_PRECISION;
+    }
+
+    function updateLastSTokenBalance() public {
+        _updateLastSTokenBalance();
     }
 }
