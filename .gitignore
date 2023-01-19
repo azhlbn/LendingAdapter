@@ -9,3 +9,6 @@ out/
 
 # Dotenv file
 .env
+
+/test/Some.t.sol
+/src/Some.sol
