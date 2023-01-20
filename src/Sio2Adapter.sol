@@ -99,10 +99,10 @@ contract Sio2Adapter is Initializable, OwnableUpgradeable, ReentrancyGuardUpgrad
     event Repay(address indexed who, address indexed user, string indexed assetName, uint256 amount);
     event Updates(address indexed who, address indexed user);
 
-    /// @custom:oz-upgrades-unsafe-allow constructor
+    /* /// @custom:oz-upgrades-unsafe-allow constructor
     constructor() {
         _disableInitializers();
-    }
+    } */
 
     function initialize(
         ISio2LendingPool _pool,

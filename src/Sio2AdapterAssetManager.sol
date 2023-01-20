@@ -45,10 +45,10 @@ contract Sio2AdapterAssetManager is Initializable, OwnableUpgradeable, Reentranc
     event AddAsset(address owner, string indexed assetName, address indexed assetAddress);
     event RemoveAsset(address owner, string indexed assetName);
 
-    /// @custom:oz-upgrades-unsafe-allow constructor
+    /* /// @custom:oz-upgrades-unsafe-allow constructor
     constructor() {
         _disableInitializers();
-    }
+    } */
 
     function initialize(
         ISio2LendingPool _pool
