@@ -1,10 +1,10 @@
 pragma solidity 0.8.4;
 //SPDX-License-Identifier: MIT
 
-import "@openzeppelin/contracts/utils/AddressUpgradeable.sol";
-import "@openzeppelin/contracts/access/OwnableUpgradeable.sol";
-import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20Upgradeable.sol";
-import "@openzeppelin/contracts/security/ReentrancyGuardUpgradeable.sol";
+import "@openzeppelin-upgradeable/contracts/utils/AddressUpgradeable.sol";
+import "@openzeppelin-upgradeable/contracts/access/OwnableUpgradeable.sol";
+import "@openzeppelin-upgradeable/contracts/token/ERC20/utils/SafeERC20Upgradeable.sol";
+import "@openzeppelin-upgradeable/contracts/security/ReentrancyGuardUpgradeable.sol";
 import "./interfaces/ISio2LendingPool.sol";
 // import "./interfaces/ISio2PriceOracle.sol";
 // import "./interfaces/ISio2IncentivesController.sol";

@@ -1,10 +1,10 @@
 pragma solidity 0.8.4;
 //SPDX-License-Identifier: MIT
 
-import "@openzeppelin/contracts/utils/AddressUpgradeable.sol";
-import "@openzeppelin/contracts/access/OwnableUpgradeable.sol";
-import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20Upgradeable.sol";
-import "@openzeppelin/contracts/security/ReentrancyGuardUpgradeable.sol";
+import "@openzeppelin-upgradeable/contracts/utils/AddressUpgradeable.sol";
+import "@openzeppelin-upgradeable/contracts/access/OwnableUpgradeable.sol";
+import "@openzeppelin-upgradeable/contracts/token/ERC20/utils/SafeERC20Upgradeable.sol";
+import "@openzeppelin-upgradeable/contracts/security/ReentrancyGuardUpgradeable.sol";
 import "./interfaces/ISio2LendingPool.sol";
 import "./interfaces/ISio2PriceOracle.sol";
 import "./interfaces/ISio2IncentivesController.sol";
@@ -110,7 +110,8 @@ contract Sio2Adapter is Initializable, OwnableUpgradeable, ReentrancyGuardUpgrad
         IERC20Upgradeable _snastrToken,
         ISio2IncentivesController _incentivesController,
         IERC20Upgradeable _rewardToken,
-        Sio2AdapterAssetManager _assetManager
+        Sio2AdapterAssetManager _assetManager,
+        ISio2PriceOracle _priceOracle // ISio2PriceOracle(0x5f7c3639A854a27DFf64B320De5C9CAF9C4Bd323);
 
     ) public initializer {
         __Ownable_init();
@@ -122,7 +123,7 @@ contract Sio2Adapter is Initializable, OwnableUpgradeable, ReentrancyGuardUpgrad
         rewardToken = _rewardToken;
         incentivesController = _incentivesController;
         assetManager.addBTokens(address(_snastrToken));
-        priceOracle = ISio2PriceOracle(0x5f7c3639A854a27DFf64B320De5C9CAF9C4Bd323);
+        priceOracle = _priceOracle;
         totalRewardsWeight += COLLATERAL_REWARDS_WEIGHT;
         lastUpdatedBlock = block.number;
 
