@@ -8,8 +8,8 @@ contract MockPriceOracle {
         address nastr,
         address busdAddr
     ) {
-        prices[nastr] = 4e16;
-        prices[busdAddr] = 1e18;
+        prices[nastr] = 5340158;
+        prices[busdAddr] = 99992110;
     }
 
     function getAssetPrice(address asset) external view returns (uint256) {

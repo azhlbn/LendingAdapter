@@ -171,4 +171,8 @@ contract Sio2AdapterAssetManager is Initializable, OwnableUpgradeable, Reentranc
     function setAdapter(Sio2Adapter _adapter) public onlyOwner {
         adapter = _adapter;
     }
+
+    function getInfo(string memory assetName) public view returns (uint256) {
+        return assetInfo[assetName].rewardsWeight;
+    }
 }

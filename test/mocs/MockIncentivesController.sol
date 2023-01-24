@@ -29,6 +29,7 @@ contract MockIncentivesController {
         snastr.setLastClaimedRewardTime();
         vdbusd.setLastClaimedRewardTime();
         rewardToken.mint(msg.sender, amount);
+        return amount;
     }
 
     function getUserUnclaimedRewards(
@@ -39,9 +40,9 @@ contract MockIncentivesController {
         uint256 incomeDebtRewards;
         uint256 incomeCollRewards;
         lastTimeDebt > 0 ? 
-        incomeDebtRewards = lastTimeDebt - block.timestamp : 0;
+        incomeDebtRewards = block.timestamp - lastTimeDebt : 0;
         lastTimeColl > 0 ?
-        incomeCollRewards = lastTimeColl - block.timestamp : 0;
+        incomeCollRewards = block.timestamp - lastTimeColl : 0;
         return incomeDebtRewards + incomeCollRewards;
     }
 }

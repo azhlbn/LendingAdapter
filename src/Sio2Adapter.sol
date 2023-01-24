@@ -410,7 +410,7 @@ contract Sio2Adapter is Initializable, OwnableUpgradeable, ReentrancyGuardUpgrad
     }
 
     // @info Claim rewards by user
-    function claimRewards() external {
+    function claimRewards() external update(msg.sender) {
         User storage user = userInfo[msg.sender];
 
         require(user.rewards > 0, "User has no any rewards");
@@ -546,7 +546,7 @@ contract Sio2Adapter is Initializable, OwnableUpgradeable, ReentrancyGuardUpgrad
 
         // set accumulated rewards per share for collateral asset
         uint256 nastrShare = snastrToken.balanceOf(address(this)) * SHARES_PRECISION / snastrToken.totalSupply();
-        uint256 collateralRewards = receivedRewards * nastrShare * COLLATERAL_REWARDS_WEIGHT / (totalRewardsWeight * sumOfAssetShares);
+        uint256 collateralRewards = rewardsToDistribute * nastrShare * COLLATERAL_REWARDS_WEIGHT / (totalRewardsWeight * sumOfAssetShares);
         accCollateralRewardsPerShare += (collateralRewards * REWARDS_PRECISION) / totalSupply;
     }
 
