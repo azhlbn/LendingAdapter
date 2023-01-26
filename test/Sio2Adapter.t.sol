@@ -26,6 +26,7 @@ contract Sio2AdapterTest is Test {
     MockIncentivesController public incentivesController;
 
     address public user;
+    address public liquidator;
 
     function setUp() public {
         nastr = new MockERC20("nASTR", "nASTR");
@@ -68,8 +69,11 @@ contract Sio2AdapterTest is Test {
         assetManager.setAdapter(adapter);
 
         user = vm.addr(1); // convert private key to address
+        liquidator = vm.addr(2);
+
         vm.deal(user, 5 ether); // add ether to user
-        nastr.mint(user, 1000e18);
+        nastr.mint(user, 1e36);
+        busd.mint(liquidator, 1e36);
         
         vm.prank(user);
         nastr.approve(address(adapter), 1e36);
@@ -145,38 +149,110 @@ contract Sio2AdapterTest is Test {
 
     function testClaimRewards() public {
         vm.startPrank(user);
+
         adapter.supply(1000 ether);
         adapter.borrow("BUSD", 10 ether);
-        vm.warp(4 minutes);
-        console.log("Time:", block.timestamp);
 
-        uint256 pendingRewards = incentivesController.getUserUnclaimedRewards(address(adapter));
-        console.log("unclaimed rewards:", incentivesController.getUserUnclaimedRewards(address(adapter)));
-        adapter._harvestRewards(pendingRewards);
+        vm.expectRevert("User has no any rewards");
+        adapter.claimRewards();
 
-        console.log("collRPS:", adapter.accCollateralRewardsPerShare());
-        console.log("reweards on adapter:", rewardToken.balanceOf(address(adapter)));
+        vm.roll(10);
+        
+        adapter.claimRewards();
 
-        console.log("reward pool:", adapter.rewardPool());
-        console.log("reward weight of busd:", assetManager.getInfo("BUSD"));
-        // adapter._updates(msg.sender);
-        // adapter.claimRewards();
-        // uint256 rewards = rewardToken.balanceOf(user);
-        // console.log("Rewards amount is:", rewards);
-        // (,,,uint256 rews,,) = adapter.userInfo(user);
-        // console.log("REWS:", rews);
-        // console.log("unclaimed rewards:", incentivesController.getUserUnclaimedRewards(address(adapter)));
-        // console.log("timestamp:", block.timestamp);
-        // console.log("last claimed time:", snastr.lastClaimedRewardTime());
+        assertGt(rewardToken.balanceOf(user), 0);
+        assertGt(adapter.rewardPool(), 0);
 
-        // uint256 accBorrowedRewardsPerShare = assetManager.getAssetsRPS("BUSD");
-        // console.log("accBorrowedRewardsPerShare:", accBorrowedRewardsPerShare);
+        (,,,uint256 rewards,,) = adapter.userInfo(user);
+        assertEq(rewards, 0);
 
-        // uint256 collRPS = adapter.accCollateralRewardsPerShare();
-        // console.log("coll RPS:", collRPS);
+        vm.stopPrank();
+    }
 
-        // uint256 lastClaimedTime = snastr.lastClaimedRewardTime();
-        // console.log("last claimed time:", lastClaimedTime);
+    function testAddAndRemoveAsset() public {
+        uint256 assetsInitAmount = assetManager.getAssetsNames().length;
+
+        assetManager.addAsset(
+            "NEW",
+            address(busd),
+            address(vdbusd),
+            8
+        );
+
+        assertEq(assetManager.getAssetsNames().length, assetsInitAmount + 1);
+
+        assetManager.removeAsset("NEW");
+
+        assertEq(assetManager.getAssetsNames().length, assetsInitAmount);
+
+        vm.expectRevert("There is no such asset");
+        assetManager.removeAsset("NEW");
+    }
+
+    function testWithdrawRevenue() public {
+        vm.startPrank(user);
+        adapter.supply(1000 ether);
+        adapter.borrow("BUSD", 10 ether);
+        vm.roll(10);
+        adapter.claimRewards();
+        vm.stopPrank();
+        uint256 amount = adapter.revenuePool();
+        adapter.withdrawRevenue(amount);
+        assertEq(rewardToken.balanceOf(address(this)), amount);
+    }
+
+    function testAddSTokens() public {
+        uint256 amount = 10 ether;
+        vm.startPrank(user);
+        nastr.approve(address(pool), amount);
+        pool.deposit(
+            address(nastr), amount, user, 0
+        );
+        assertGt(snastr.balanceOf(user), 0);
+        assertEq(snastr.balanceOf(address(adapter)), 0);
+        snastr.approve(address(adapter), amount);
+        adapter.addSTokens(amount);
+        assertEq(snastr.balanceOf(user), 0);
+        assertGt(snastr.balanceOf(address(adapter)), 0);
+
+        vm.stopPrank();
+    }
+
+    function testLiquidationCall() public {
+        vm.startPrank(user);
+        adapter.supply(100 ether);
+
+        (uint256 availableToBorrow,) = adapter._availableCollateralUSD(user);
+
+        adapter.borrow("BUSD", availableToBorrow);
+
+        console.log("hf:", adapter.estimateHF(user));
+
+        priceOracle.setAssetPrice(address(busd), 129992110);
+
+        console.log("hf:", adapter.estimateHF(user));
+        vm.stopPrank();
+
+        uint256 debtToCover = adapter.debts(user, "BUSD") / 2;
+
+        console.log("debt to cover:", debtToCover);
+        console.log("debt:", adapter.debts(user, "BUSD"));
+        (,, uint256 col,,,) = adapter.userInfo(user);
+        console.log("col amount:", col);
+
+        vm.startPrank(liquidator);
+        busd.approve(address(adapter), 1e36);
+        adapter.liquidationCall(
+            "BUSD",
+            user,
+            debtToCover
+        );        
+        vm.stopPrank();
+
+        console.log("hf:", adapter.estimateHF(user));
+        console.log("debt:", adapter.debts(user, "BUSD"));
+        (,, uint256 col2,,,) = adapter.userInfo(user);
+        console.log("col amount:", col2);
     }
 
     function testToUSD() public {

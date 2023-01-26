@@ -10,6 +10,8 @@ contract MockIncentivesController {
     MockVDToken public vdbusd;
     MockERC20 public rewardToken;
 
+    uint256 public constant REWARDS_PER_BLOCK = 1e10;
+
     constructor(
         MockSCollateralToken _snastr,
         MockVDToken _vdbusd,
@@ -39,10 +41,10 @@ contract MockIncentivesController {
         uint256 lastTimeColl = snastr.lastClaimedRewardTime();
         uint256 incomeDebtRewards;
         uint256 incomeCollRewards;
-        lastTimeDebt > 0 ? 
-        incomeDebtRewards = block.timestamp - lastTimeDebt : 0;
-        lastTimeColl > 0 ?
-        incomeCollRewards = block.timestamp - lastTimeColl : 0;
+        lastTimeDebt > 0 && lastTimeDebt < block.number ? 
+        incomeDebtRewards = (block.number - lastTimeDebt) * REWARDS_PER_BLOCK : 0;
+        lastTimeColl > 0 && lastTimeColl < block.number ?
+        incomeCollRewards = (block.number - lastTimeColl) * REWARDS_PER_BLOCK : 0;
         return incomeDebtRewards + incomeCollRewards;
     }
 }

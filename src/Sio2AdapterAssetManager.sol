@@ -22,12 +22,12 @@ contract Sio2AdapterAssetManager is Initializable, OwnableUpgradeable, Reentranc
     Sio2Adapter public adapter;
 
     uint256 private constant REWARDS_PRECISION = 1e12; // A big number to perform mul and div operations
+    uint256 private constant COLLATERAL_REWARDS_WEIGHT = 5; // 5% of all sio2 collateral rewards go to the nASTR pool
 
     string[] public assets;
     mapping(string => Asset) public assetInfo;
     address[] public assetsAddresses;
     address[] public bTokens;
-    uint256 public totalRewardsWeight; // the sum of the weights of collateral and borrowed assets
 
     struct Asset {
         uint256 id;
@@ -94,7 +94,6 @@ contract Sio2AdapterAssetManager is Initializable, OwnableUpgradeable, Reentranc
         assetsAddresses.push(asset.addr);
         assetInfo[_assetName] = asset;
         bTokens.push(_bToken);
-        totalRewardsWeight += _rewardsWeight;
 
         emit AddAsset(msg.sender, _assetName, _assetAddress);
     }
@@ -122,9 +121,6 @@ contract Sio2AdapterAssetManager is Initializable, OwnableUpgradeable, Reentranc
         address lastBAddr = bTokens[bTokens.length - 1];
         bTokens[asset.id] = lastBAddr;
         bTokens.pop();
-
-        // update totalRewardsWeight
-        totalRewardsWeight -= asset.rewardsWeight;
 
         // update id of last asset and remove deleted struct
         assetInfo[lastAsset].id = asset.id;

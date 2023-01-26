@@ -39,7 +39,6 @@ contract Sio2Adapter is Initializable, OwnableUpgradeable, ReentrancyGuardUpgrad
     uint256 public lastSTokenBalance;
     uint256 public rewardPool;
     uint256 public revenuePool;
-    uint256 public totalRewardsWeight; // the sum of the weights of collateral and borrowed assets
     uint256 public collateralLTV; // nASTR Loan To Value
     uint256 public collateralLT; // nASTR Liquidation Threshold
 
@@ -88,6 +87,11 @@ contract Sio2Adapter is Initializable, OwnableUpgradeable, ReentrancyGuardUpgrad
         uint256 sTokensIncomeDebt;
     }
 
+    uint256 public x;
+    uint256 public y;
+    uint256 public z;
+    address public xaddr;
+
     //Events
     event Supply(address indexed user, uint256 indexed amount);
     event Withdraw(address indexed user, uint256 indexed amount);
@@ -124,7 +128,6 @@ contract Sio2Adapter is Initializable, OwnableUpgradeable, ReentrancyGuardUpgrad
         incentivesController = _incentivesController;
         assetManager.addBTokens(address(_snastrToken));
         priceOracle = _priceOracle;
-        totalRewardsWeight += COLLATERAL_REWARDS_WEIGHT;
         lastUpdatedBlock = block.number;
 
         _updateLastSTokenBalance();
@@ -414,10 +417,12 @@ contract Sio2Adapter is Initializable, OwnableUpgradeable, ReentrancyGuardUpgrad
         User storage user = userInfo[msg.sender];
 
         require(user.rewards > 0, "User has no any rewards");
+        require(rewardPool >= user.rewards, "Not enough rewards in reward pool");
 
         uint256 rewardsToClaim = user.rewards;
 
         user.rewards = 0;
+
         rewardPool -= rewardsToClaim;
 
         rewardToken.safeTransfer(msg.sender, rewardsToClaim);
@@ -508,13 +513,21 @@ contract Sio2Adapter is Initializable, OwnableUpgradeable, ReentrancyGuardUpgrad
         uint256 rewardsToDistribute = receivedRewards - comissionPart;
 
         // get total asset shares in pool to further calculate rewards for each asset
-        uint256 sumOfAssetShares = snastrToken.balanceOf(address(this));
-        for (uint256 i; i < bTokens.length; i++ ) {
-            IERC20Upgradeable bToken = IERC20Upgradeable(bTokens[i]);
+        uint256 sumOfAssetShares = snastrToken.balanceOf(address(this)) * COLLATERAL_REWARDS_WEIGHT * SHARES_PRECISION / snastrToken.totalSupply();
+        for (uint256 i; i < assets.length; i++ ) {
+            (
+                , , ,
+                address assetBTokenAddress,
+                , ,
+                uint256 assetTotalBorrowed,
+                uint256 assetRewardsWeight,
+                ,
+            ) = assetManager.assetInfo(assets[i]);
+            IERC20Upgradeable bToken = IERC20Upgradeable(assetBTokenAddress);
             uint256 adapterBalance = bToken.balanceOf(address(this));
             uint256 totalBalance = bToken.totalSupply();
 
-            sumOfAssetShares += adapterBalance * SHARES_PRECISION / totalBalance;
+            sumOfAssetShares += assetRewardsWeight * adapterBalance * SHARES_PRECISION / totalBalance;
         }
 
         // set accumulated rewards per share for each borrowed asset
@@ -536,8 +549,8 @@ contract Sio2Adapter is Initializable, OwnableUpgradeable, ReentrancyGuardUpgrad
 
                 // calc rewards amount for asset according to its weight and pool share
                 uint256 assetRewards = rewardsToDistribute * shareOfAsset * assetRewardsWeight / 
-                    (sumOfAssetShares * totalRewardsWeight);
-
+                    sumOfAssetShares;
+                x = assetRewards;
                 assetManager.increaseAccBorrowedRewardsPerShare(assets[i], assetRewards);
             }
             
@@ -546,8 +559,9 @@ contract Sio2Adapter is Initializable, OwnableUpgradeable, ReentrancyGuardUpgrad
 
         // set accumulated rewards per share for collateral asset
         uint256 nastrShare = snastrToken.balanceOf(address(this)) * SHARES_PRECISION / snastrToken.totalSupply();
-        uint256 collateralRewards = rewardsToDistribute * nastrShare * COLLATERAL_REWARDS_WEIGHT / (totalRewardsWeight * sumOfAssetShares);
+        uint256 collateralRewards = rewardsToDistribute * nastrShare * COLLATERAL_REWARDS_WEIGHT / sumOfAssetShares;
         accCollateralRewardsPerShare += (collateralRewards * REWARDS_PRECISION) / totalSupply;
+        y = collateralRewards;
     }
 
     function _updatePools() public { // <= change to private
@@ -600,7 +614,7 @@ contract Sio2Adapter is Initializable, OwnableUpgradeable, ReentrancyGuardUpgrad
             ) = assetManager.assetInfo(user.borrowedAssets[i]);
 
             // update bToken debt
-            uint256 debtToHarvest = (debts[_user][assetName] * assetAccBTokensPerShare) / // <= CHECK
+            uint256 debtToHarvest = (debts[_user][assetName] * assetAccBTokensPerShare) / 
                 REWARDS_PRECISION - userBTokensIncomeDebt[_user][assetName];
             debts[_user][assetName] += debtToHarvest;
             userBTokensIncomeDebt[_user][assetName] = (debts[_user][assetName] * assetAccBTokensPerShare) /

@@ -15,7 +15,7 @@ contract MockSio2LendingPool {
     MockERC20 public busd;
     MockVDToken public vdbusd;
 
-    uint256 public collateralAmount;
+    mapping(address => uint256) public collateralAmount;
     uint256 public borrowAmount;
 
     constructor(
@@ -37,7 +37,7 @@ contract MockSio2LendingPool {
         address onBehalfOf,
         uint16 referralCode
     ) external {
-        collateralAmount += amount;
+        collateralAmount[msg.sender] += amount;
         snastr.mint(msg.sender, amount);
         nastr.transferFrom(msg.sender, address(this), amount);
     }
@@ -55,10 +55,10 @@ contract MockSio2LendingPool {
         address to
     ) external returns (uint256) {
         require(
-            collateralAmount >= amount,
+            collateralAmount[msg.sender] >= amount,
             "Mock: Not enough collateral in lending pool"
         );
-        collateralAmount -= amount;
+        collateralAmount[msg.sender] -= amount;
         snastr.burn(msg.sender, amount);
         nastr.transfer(msg.sender, amount);
         return amount;

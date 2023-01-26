@@ -12,8 +12,8 @@ contract MockVDToken is ERC20Burnable {
     function mint(address who, uint256 amount) public {
         _mint(who, amount);
         if (lastClaimedTime == 0) {
-            lastClaimedTime = block.timestamp;
-            lastClaimedRewardTime = block.timestamp;
+            lastClaimedTime = block.number;
+            lastClaimedRewardTime = block.number;
         }
     }
 
@@ -22,6 +22,6 @@ contract MockVDToken is ERC20Burnable {
     }
 
     function setLastClaimedRewardTime() public {
-        lastClaimedRewardTime = block.timestamp;
+        lastClaimedRewardTime = block.number;
     }
 }
