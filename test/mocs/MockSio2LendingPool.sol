@@ -15,6 +15,9 @@ contract MockSio2LendingPool {
     MockERC20 public busd;
     MockVDToken public vdbusd;
 
+    mapping(address => MockERC20) public assets;
+    mapping(address => MockVDToken) public debtAssets;
+
     mapping(address => uint256) public collateralAmount;
     uint256 public borrowAmount;
 
@@ -22,13 +25,17 @@ contract MockSio2LendingPool {
         MockSCollateralToken _snastr,
         MockERC20 _nastr,
         MockERC20 _busd,
-        MockVDToken _vdbusd
+        MockERC20 _dot,
+        MockVDToken _vdbusd,
+        MockVDToken _vddot
     ) {
         snastr = _snastr;
         busdConfigMap.data = 27671057969860373126976;
         nastr = _nastr;
-        busd = _busd;
-        vdbusd = _vdbusd;
+        assets[address(_busd)] = _busd;
+        assets[address(_dot)] = _dot;
+        debtAssets[address(_busd)] = _vdbusd;
+        debtAssets[address(_dot)] = _vddot;
     }
 
     function deposit(
@@ -72,8 +79,8 @@ contract MockSio2LendingPool {
         address onBehalfOf
     ) external {
         borrowAmount += amount;
-        busd.mint(msg.sender, amount);
-        vdbusd.mint(msg.sender, amount);
+        assets[asset].mint(msg.sender, amount);
+        debtAssets[asset].mint(msg.sender, amount);
     }
 
     function getUserAccountData(
@@ -101,7 +108,7 @@ contract MockSio2LendingPool {
         address onBehalfOf
     ) external returns (uint256) {
         borrowAmount -= amount;
-        busd.transferFrom(msg.sender, address(this), amount);
-        vdbusd.burn(msg.sender, amount);
+        assets[asset].transferFrom(msg.sender, address(this), amount);
+        debtAssets[asset].burn(msg.sender, amount);
     }
 }

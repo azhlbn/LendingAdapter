@@ -317,8 +317,8 @@ contract Sio2Adapter is Initializable, OwnableUpgradeable, ReentrancyGuardUpgrad
         _debtToCover = _toUSD(debtAssetAddr, _debtToCover);
 
         // make sure that _debtToCover not exceeds 50% of user total debt and 100% of chosen asset debt
-        require(_debtToCover <= userTotalDebtInUSD / 2, "Debt to cover need to be lower than 50% of users debt");
         require(_debtToCover <= userDebtInAsset, "_debtToCover exceeds the user's debt amount");
+        require(_debtToCover <= userTotalDebtInUSD / 2, "Debt to cover need to be lower than 50% of users debt");
 
         // repay debt for user by liquidator
         _repay(_debtAsset, _debtToCover, _user);
@@ -417,7 +417,6 @@ contract Sio2Adapter is Initializable, OwnableUpgradeable, ReentrancyGuardUpgrad
         User storage user = userInfo[msg.sender];
 
         require(user.rewards > 0, "User has no any rewards");
-        require(rewardPool >= user.rewards, "Not enough rewards in reward pool");
 
         uint256 rewardsToClaim = user.rewards;
 
@@ -526,8 +525,9 @@ contract Sio2Adapter is Initializable, OwnableUpgradeable, ReentrancyGuardUpgrad
             IERC20Upgradeable bToken = IERC20Upgradeable(assetBTokenAddress);
             uint256 adapterBalance = bToken.balanceOf(address(this));
             uint256 totalBalance = bToken.totalSupply();
-
-            sumOfAssetShares += assetRewardsWeight * adapterBalance * SHARES_PRECISION / totalBalance;
+            if (totalBalance != 0) {
+                sumOfAssetShares += assetRewardsWeight * adapterBalance * SHARES_PRECISION / totalBalance;
+            }
         }
 
         // set accumulated rewards per share for each borrowed asset
@@ -679,7 +679,7 @@ contract Sio2Adapter is Initializable, OwnableUpgradeable, ReentrancyGuardUpgrad
     }
 
     // @dev Change to private later
-    function _fromUSD(address _asset, uint256 _amount) public view returns (uint256) {
+    function _fromUSD(address _asset, uint256 _amount) private view returns (uint256) {
         uint256 price = priceOracle.getAssetPrice(_asset);
         return _amount * PRICE_PRECISION / price;
     }
@@ -752,15 +752,6 @@ contract Sio2Adapter is Initializable, OwnableUpgradeable, ReentrancyGuardUpgrad
     function setup() public onlyOwner {
         ( , , , , collateralLTV, ) = pool.getUserAccountData(address(this));
         ( , , , collateralLT, , ) = pool.getUserAccountData(address(this));
-    }
-
-    // need to remove all below in prod
-    function setUserCollateral(address _user, uint256 _amount) public {
-        User storage user = userInfo[_user];
-        user.collateralAmount = _amount;
-        user.collateralRewardDebt = user.collateralAmount * accCollateralRewardsPerShare / REWARDS_PRECISION;
-        user.sTokensIncomeDebt = (user.collateralAmount * accSTokensPerShare) /
-            REWARDS_PRECISION;
     }
 
     function updateLastSTokenBalance() public {

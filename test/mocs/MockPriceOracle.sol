@@ -6,9 +6,10 @@ contract MockPriceOracle {
 
     constructor(
         address nastr,
-        address busdAddr
+        address busdAddr,
+        address dot
     ) {
-        setInitPrices(nastr, busdAddr);
+        setInitPrices(nastr, busdAddr, dot);
     }
 
     function getAssetPrice(address asset) external view returns (uint256) {
@@ -19,8 +20,9 @@ contract MockPriceOracle {
         prices[assetAddr] = price;
     }
 
-    function setInitPrices(address nastr, address busdAddr) public {
+    function setInitPrices(address nastr, address busdAddr, address dot) public {
         prices[nastr] = 5340158;
         prices[busdAddr] = 99992110;
+        prices[dot] = 638629923;
     }
 }
