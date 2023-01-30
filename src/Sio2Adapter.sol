@@ -182,7 +182,7 @@ contract Sio2Adapter is Initializable, OwnableUpgradeable, ReentrancyGuardUpgrad
 
         //check ltv condition in case of user's call
         if (msg.sender == _user) {
-            ( , uint256 availableColToWithdraw) = _availableCollateralUSD(_user);
+            ( , uint256 availableColToWithdraw) = availableCollateralUSD(_user);
             require(
                 // user can't withdraw collateral if his debt is too large
                 availableColToWithdraw >= _toUSD(address(nastr), _amount),
@@ -217,7 +217,7 @@ contract Sio2Adapter is Initializable, OwnableUpgradeable, ReentrancyGuardUpgrad
 
     function borrow(string memory _assetName, uint256 _amount) external update(msg.sender) nonReentrant {
         ( , , address assetAddr, , , , , , , ) = assetManager.assetInfo(_assetName);
-        (uint256 availableColToBorrow, ) = _availableCollateralUSD(msg.sender);
+        (uint256 availableColToBorrow, ) = availableCollateralUSD(msg.sender);
         require(
             _toUSD(assetAddr, _amount) <= availableColToBorrow,
             "Not enough collateral to borrow"
@@ -312,7 +312,7 @@ contract Sio2Adapter is Initializable, OwnableUpgradeable, ReentrancyGuardUpgrad
         require(getHF(_user) < 1e18, "User has healthy enough position");
         
         // get total user debt in usd and a specific asset
-        uint256 userTotalDebtInUSD = _calcEstimateUserDebtUSD(userInfo[_user]);
+        uint256 userTotalDebtInUSD = calcEstimateUserDebtUSD(userInfo[_user]);
         uint256 userDebtInAsset = debts[_user][_debtAsset];
         _debtToCover = _toUSD(debtAssetAddr, _debtToCover);
 
@@ -337,7 +337,7 @@ contract Sio2Adapter is Initializable, OwnableUpgradeable, ReentrancyGuardUpgrad
     // @dev to get HF for check healthy of user position
     // @dev HF = sum(collateral_i * liqThreshold_i) / totalBorrowsInUSD
     function getHF(address _user) public update(_user) returns (uint256 hf) {
-        uint256 debtUSD = _calcEstimateUserDebtUSD(userInfo[_user]);
+        uint256 debtUSD = calcEstimateUserDebtUSD(userInfo[_user]);
         require(debtUSD > 0, "User has no debts");
         uint256 collateralUSD = _toUSD(address(nastr), userInfo[_user].collateralAmount);
         hf = collateralUSD * collateralLT * 1e18 / RISK_PARAMS_PRECISION / debtUSD;
@@ -346,18 +346,18 @@ contract Sio2Adapter is Initializable, OwnableUpgradeable, ReentrancyGuardUpgrad
     function estimateHF(address _user) public view returns (uint256 hf) {
         User memory user = userInfo[_user];
 
-        uint256 collateralUSD = _calcEstimateUserCollateralUSD(user);
+        uint256 collateralUSD = calcEstimateUserCollateralUSD(user);
 
         // get est borrowed accRPS for assets
         // calc est user's debt
-        uint256 debtUSD = _calcEstimateUserDebtUSD(user);
+        uint256 debtUSD = calcEstimateUserDebtUSD(user);
         
         require(debtUSD > 0, "User has no debts");
 
         hf = collateralUSD * collateralLT * 1e18 / RISK_PARAMS_PRECISION / debtUSD;
     }
 
-    function _calcEstimateUserCollateralUSD(User memory user) public view returns (uint256 coll) {
+    function calcEstimateUserCollateralUSD(User memory user) public view returns (uint256 coll) {
         // get est collateral accRPS
         uint256 estAccSTokensPerShare = accSTokensPerShare;
         uint256 estUserCollateral = user.collateralAmount;
@@ -373,7 +373,7 @@ contract Sio2Adapter is Initializable, OwnableUpgradeable, ReentrancyGuardUpgrad
         coll = _toUSD(address(nastr), estUserCollateral);
     }
 
-    function _calcEstimateUserDebtUSD(User memory user) public view returns (uint256 debtUSD) {
+    function calcEstimateUserDebtUSD(User memory user) public view returns (uint256 debtUSD) {
         for (uint256 i; i < user.borrowedAssets.length;) {
             (
                 , 
@@ -657,18 +657,18 @@ contract Sio2Adapter is Initializable, OwnableUpgradeable, ReentrancyGuardUpgrad
     }
 
     // @dev To get the available amount to borrow expressed in usd
-    function _availableCollateralUSD(address _userAddress)
+    function availableCollateralUSD(address _userAddress)
         public
         view
         returns (uint256 toBorrow, uint256 toWithdraw)
     {
         User memory user = userInfo[_userAddress];
         if (user.collateralAmount == 0) return (0, 0);
-        uint256 debt = _calcEstimateUserDebtUSD(user);
-        uint256 userCollateral = _calcEstimateUserCollateralUSD(user);
+        uint256 debt = calcEstimateUserDebtUSD(user);
+        uint256 userCollateral = calcEstimateUserCollateralUSD(user);
         uint256 collateralAfterLTV = (userCollateral * collateralLTV) / RISK_PARAMS_PRECISION;
         if (collateralAfterLTV > debt) toBorrow = collateralAfterLTV - debt;
-        uint256 debtAfterLTV = debt * (2 * RISK_PARAMS_PRECISION - collateralLTV) / RISK_PARAMS_PRECISION;
+        uint256 debtAfterLTV = debt * RISK_PARAMS_PRECISION / collateralLTV;
         if (userCollateral > debtAfterLTV) toWithdraw = userCollateral - debtAfterLTV;
     }
 
