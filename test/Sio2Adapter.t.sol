@@ -275,7 +275,7 @@ contract Sio2AdapterTest is Test {
         vm.expectRevert("User has no debts");
         adapter.estimateHF(user);
 
-        (uint256 availableToBorrow,) = adapter._availableCollateralUSD(user);
+        (uint256 availableToBorrow,) = adapter.availableCollateralUSD(user);
 
         adapter.borrow("BUSD", availableToBorrow);
 
@@ -321,7 +321,7 @@ contract Sio2AdapterTest is Test {
         vm.prank(user);
         adapter.supply(1 ether);
 
-        (,uint256 availableColToWithdraw) = adapter._availableCollateralUSD(user);
+        (,uint256 availableColToWithdraw) = adapter.availableCollateralUSD(user);
 
         (,, uint256 col,,,) = adapter.userInfo(user);
     }
