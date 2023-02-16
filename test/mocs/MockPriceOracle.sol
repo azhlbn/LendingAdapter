@@ -22,7 +22,7 @@ contract MockPriceOracle {
 
     function setInitPrices(address nastr, address busdAddr, address dot) public {
         prices[nastr] = 5340158;
-        prices[busdAddr] = 99992110;
+        prices[busdAddr] = 100000000;
         prices[dot] = 638629923;
     }
 }

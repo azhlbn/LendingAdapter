@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: UNLICENSED
+// SPDX-License-Identifier: MIT
 pragma solidity ^0.8.4;
 
 import "forge-std/Test.sol";
@@ -12,7 +12,7 @@ import "./mocs/MockVDToken.sol";
 import "./mocs/MockIncentivesController.sol";
 import "@openzeppelin-upgradeable/contracts/token/ERC20/ERC20Upgradeable.sol";
 
-contract Sio2AdapterTest is Test {
+contract Sio2AdapterTes is Test {
     Sio2Adapter public adapter;
     Sio2AdapterAssetManager public assetManager;
 
@@ -266,8 +266,11 @@ contract Sio2AdapterTest is Test {
     }
 
     function testLiquidationCall() public {
+        console.log(nastr.balanceOf(liquidator), "liquidators nastr");
         vm.startPrank(user);
         adapter.supply(100 ether);
+
+        console.log(adapter.getUser(user).collateralAmount, "useres collateral ");
 
         vm.expectRevert("User has no debts");
         adapter.getHF(user);
@@ -278,32 +281,36 @@ contract Sio2AdapterTest is Test {
         (uint256 availableToBorrow,) = adapter.availableCollateralUSD(user);
 
         adapter.borrow("BUSD", availableToBorrow);
+        console.log(adapter.getUser(user).collateralAmount, "useres collateral ");
 
         console.log("hf:", adapter.estimateHF(user));
         vm.stopPrank();
 
         vm.startPrank(liquidator);
         priceOracle.setAssetPrice(address(busd), 129992110);
-
         console.log("hf:", adapter.estimateHF(user));
-
         uint256 debtToCover = adapter.debts(user, "BUSD");
-
         busd.approve(address(adapter), 1e36);
 
         vm.expectRevert("Debt to cover need to be lower than 50% of users debt");
         adapter.liquidationCall(
             "BUSD",
             user,
-            debtToCover - 1e18
+            debtToCover - 1e17
         );
 
         vm.expectRevert("_debtToCover exceeds the user's debt amount");
         adapter.liquidationCall(
             "BUSD",
             user,
-            debtToCover * 2
+            debtToCover + 1e17
         );
+
+        uint256 debt = adapter.debts(user, "BUSD");
+        console.log(debt, "users debbt");
+
+        console.log(adapter.getUser(user).collateralAmount, "useres collateral ");
+        uint256 col = adapter.getUser(user).collateralAmount;
 
         adapter.liquidationCall(
             "BUSD",
@@ -311,10 +318,11 @@ contract Sio2AdapterTest is Test {
             debtToCover / 2
         );        
         vm.stopPrank();
-    }
 
-    function testToUSD() public {
-        uint256 price = adapter._toUSD(address(nastr), 1 ether);
+        console.log(adapter.debts(user, "BUSD"), "users debbt");
+        console.log(adapter.getUser(user).collateralAmount, "users col");
+
+        console.log("hf:", adapter.estimateHF(user));
     }
 
     function testAvailableCollateralUSD() public {
