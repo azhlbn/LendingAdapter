@@ -6,13 +6,7 @@ import "@openzeppelin-upgradeable/contracts/access/OwnableUpgradeable.sol";
 import "@openzeppelin-upgradeable/contracts/token/ERC20/utils/SafeERC20Upgradeable.sol";
 import "@openzeppelin-upgradeable/contracts/security/ReentrancyGuardUpgradeable.sol";
 import "./interfaces/ISio2LendingPool.sol";
-// import "./interfaces/ISio2PriceOracle.sol";
-// import "./interfaces/ISio2IncentivesController.sol";
 import "./Sio2Adapter.sol";
-
-/* 
-- add events
- */
 
 contract Sio2AdapterAssetManager is Initializable, OwnableUpgradeable, ReentrancyGuardUpgradeable {
     using ReserveConfiguration for DataTypes.ReserveConfigurationMap; // used to extract risk parameters of an asset
@@ -44,6 +38,8 @@ contract Sio2AdapterAssetManager is Initializable, OwnableUpgradeable, Reentranc
 
     event AddAsset(address owner, string indexed assetName, address indexed assetAddress);
     event RemoveAsset(address owner, string indexed assetName);
+    event AddBToken(address who, address token);
+    event SetAdapter(address who, address adapterAddress);
 
     /* /// @custom:oz-upgrades-unsafe-allow constructor
     constructor() {
@@ -129,8 +125,11 @@ contract Sio2AdapterAssetManager is Initializable, OwnableUpgradeable, Reentranc
         emit RemoveAsset(msg.sender, _assetName);
     }
 
+    // @notice Add b-token
     function addBTokens(address _bToken) public {
         bTokens.push(_bToken);
+
+        emit AddBToken(msg.sender, _bToken);
     }
 
     function increaseAssetsTotalBorrowed(string memory _assetName, uint256 _amount) external onlyAdapter {
@@ -156,16 +155,18 @@ contract Sio2AdapterAssetManager is Initializable, OwnableUpgradeable, Reentranc
         asset.lastBTokenBalance = IERC20Upgradeable(asset.bTokenAddress).balanceOf(address(adapter));
     }
 
+    function setAdapter(Sio2Adapter _adapter) public onlyOwner {
+        adapter = _adapter;
+
+        emit SetAdapter(msg.sender, address(_adapter));
+    }
+
     function getBTokens() public view returns (address[] memory) {
         return bTokens;
     }
 
     function getAssetsNames() public view returns (string[] memory) {
         return assets;
-    }
-
-    function setAdapter(Sio2Adapter _adapter) public onlyOwner {
-        adapter = _adapter;
     }
 
     function getInfo(string memory assetName) public view returns (uint256) {

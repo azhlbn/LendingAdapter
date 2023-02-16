@@ -1,5 +1,5 @@
-pragma solidity 0.8.4;
 //SPDX-License-Identifier: MIT
+pragma solidity 0.8.4;
 
 import "@openzeppelin-upgradeable/contracts/utils/AddressUpgradeable.sol";
 import "@openzeppelin-upgradeable/contracts/access/OwnableUpgradeable.sol";
@@ -87,9 +87,16 @@ contract Sio2Adapter is Initializable, OwnableUpgradeable, ReentrancyGuardUpgrad
     event AddSToken(address indexed who, uint256 indexed amount);
     event LiquidationCall(address indexed liquidatorAddr, address indexed userAddr, string indexed debtAsset, uint256 debtToCover);
     event ClaimRewards(address indexed who, uint256 rewardsToClaim);
-    event WithdrawRevenut(address indexed who, uint256 indexed amount);
+    event WithdrawRevenue(address indexed who, uint256 indexed amount);
     event Repay(address indexed who, address indexed user, string indexed assetName, uint256 amount);
     event Updates(address indexed who, address indexed user);
+    event RemoveAssetFromUser(address user, string assetName);
+    event HarvestRewards(address who, uint256 pendingRewards);
+    event UpdatePools(address who);
+    event UpdateUserRewards(address user);
+    event RemoveUser(address user);
+    event UpdateLastSTokenBalance(address who, uint256 currentBalance);
+    event SetupCollateralParams(address who, uint256 collateralLTV, uint256 collaterlLT);
 
     /* /// @custom:oz-upgrades-unsafe-allow constructor
     constructor() {
@@ -346,6 +353,320 @@ contract Sio2Adapter is Initializable, OwnableUpgradeable, ReentrancyGuardUpgrad
         hf = collateralUSD * collateralLT * 1e18 / RISK_PARAMS_PRECISION / debtUSD;
     }
 
+    // @dev setup to get collateral info
+    function setup() public onlyOwner {
+        ( , , , , collateralLTV, ) = pool.getUserAccountData(address(this));
+        ( , , , collateralLT, , ) = pool.getUserAccountData(address(this));
+        emit SetupCollateralParams(msg.sender, collateralLTV, collateralLT);
+    }
+
+    // @notice Updates user's s-tokens balance
+    function _updateUserCollateralIncomeDebts(User storage _user) private {
+        // update rewardDebt for user's collateral
+        _user.sTokensIncomeDebt = _user.collateralAmount * accSTokensPerShare / REWARDS_PRECISION;
+
+        // update rewardDebt for user's collateral rewards
+        _user.collateralRewardDebt = _user.collateralAmount * accCollateralRewardsPerShare / REWARDS_PRECISION;
+    }
+
+    // @notice Update all pools
+    function _updates(address _user) private {
+        // check sio2 rewards
+        uint256 pendingRewards = incentivesController.getUserUnclaimedRewards(
+            address(this)
+        );
+
+        // claim sio2 rewards if there is some
+        if (pendingRewards > 0) _harvestRewards(pendingRewards);
+        
+        if (block.number > lastUpdatedBlock) {
+            // update collateral and debt accumulated rewards per share
+            _updatePools();
+
+            // update user's rewards, collateral and debt
+            _updateUserRewards(_user);
+
+            lastUpdatedBlock = block.number;
+        }
+
+        emit Updates(msg.sender, _user);
+    }
+
+    // @notice Update last S token balance
+    function _updateLastSTokenBalance() private {
+        uint256 currentBalance = snastrToken.balanceOf(address(this));
+        if (lastSTokenBalance != currentBalance) {
+            lastSTokenBalance = currentBalance;
+        }
+        emit UpdateLastSTokenBalance(msg.sender, currentBalance);
+    }
+
+    // @notice Updates user's b-tokens balance
+    function _updateUserBorrowedIncomeDebts(address _user, string memory _assetName) private {
+        ( , , , , , , , ,
+            uint256 assetAccBTokensPerShare, 
+            uint256 assetAccBorrowedRewardsPerShare
+        ) = assetManager.assetInfo(_assetName);
+
+        // update rewardDebt for user's bTokens
+        userBTokensIncomeDebt[_user][_assetName] = debts[_user][_assetName] * assetAccBTokensPerShare /
+            REWARDS_PRECISION;
+
+        // update rewardDebt for user's borrowed rewards
+        userBorrowedRewardDebt[_user][_assetName] = debts[_user][_assetName] * assetAccBorrowedRewardsPerShare /
+            REWARDS_PRECISION;
+    }
+
+    // @notice Claim rewards by user
+    function claimRewards() external update(msg.sender) {
+        User storage user = userInfo[msg.sender];
+        require(user.rewards > 0, "User has no any rewards");
+        uint256 rewardsToClaim = user.rewards;
+        user.rewards = 0;
+        rewardPool -= rewardsToClaim;
+        rewardToken.safeTransfer(msg.sender, rewardsToClaim);
+
+        emit ClaimRewards(msg.sender, rewardsToClaim);
+    }
+
+    // @notice Withdraw revenue by owner
+    // @param _amount Amount of sio2 tokens
+    function withdrawRevenue(uint256 _amount) external onlyOwner {
+        require(_amount > 0, "Should be greater than zero");
+        require(
+            rewardToken.balanceOf(address(this)) >= _amount,
+            "Not enough SIO2 revenue tokens"
+        );
+
+        revenuePool -= _amount;
+        rewardToken.safeTransfer(msg.sender, _amount);
+
+        emit WithdrawRevenue(msg.sender, _amount);
+    }
+
+    // @notice Repay logic
+    function _repay(string memory _assetName, uint256 _amount, address _user) private {
+        ( , , address assetAddress, , , , , , , ) = assetManager.assetInfo(_assetName);
+        IERC20Upgradeable asset = IERC20Upgradeable(assetAddress);
+
+        // convert price to correct format in case of dot borrowings
+        if (assetAddress == DOT_ADDR) {
+            _amount /= DOT_PRECISION;
+        }
+
+        // check balance of user or liquidator
+        require(debts[_user][_assetName] > 0, "The user has no debt in this asset");
+        require(asset.balanceOf(msg.sender) >= _amount, "Not enough wallet balance to repay");
+        require(_amount > 0, "Amount should be greater than zero");
+        require(debts[_user][_assetName] >= _amount, "Too large amount, debt is smaller");
+
+        // take borrowed asset from user or liquidator and reduce user's debt
+        asset.safeTransferFrom(msg.sender, address(this), _amount);
+
+        debts[_user][_assetName] -= _amount;
+        assetManager.decreaseAssetsTotalBorrowed(_assetName, _amount);
+
+        // remove the asset from the user's borrowedAssets if he is no longer a debtor
+        if (debts[_user][_assetName] == 0) {
+            _removeAssetFromUser(_assetName, _user);
+        }
+
+        asset.approve(address(pool), _amount);
+        pool.repay(assetAddress, _amount, 2, address(this));
+
+        // update user's income debts for bTokens and borrowed rewards
+        _updateUserBorrowedIncomeDebts(_user, _assetName);
+
+        // update bToken's last balance
+        assetManager.updateLastBTokenBalance(_assetName);
+
+        emit Repay(msg.sender, _user, _assetName, _amount);
+    }
+
+    // @notice Removes asset from user's assets list
+    function _removeAssetFromUser(string memory _assetName, address _user) private {
+        string[] storage bAssets = userInfo[_user].borrowedAssets;
+        uint256 assetId = userBorrowedAssetID[_user][_assetName];
+        uint256 lastId = bAssets.length - 1;
+        string memory lastAsset = bAssets[lastId];
+        userBorrowedAssetID[_user][lastAsset] = assetId;
+        bAssets[assetId] = bAssets[lastId];
+        bAssets.pop();
+        emit RemoveAssetFromUser(_user, _assetName);
+    }
+
+    // @notice Collect accumulated income of sio2 rewards
+    function _harvestRewards(uint256 _pendingRewards) private {
+        address[] memory bTokens = assetManager.getBTokens();
+        string[] memory assets = assetManager.getAssetsNames();
+        // receiving rewards from incentives controller
+        // this rewards consists of collateral and debt rewards
+        uint256 receivedRewards = incentivesController.claimRewards(
+            bTokens,
+            _pendingRewards,
+            address(this)
+        );
+
+        // cut off the commission part specified in the documentation
+        uint256 comissionPart = receivedRewards / REVENUE_FEE;
+        rewardPool += receivedRewards - comissionPart;
+        revenuePool += comissionPart;
+
+        uint256 rewardsToDistribute = receivedRewards - comissionPart;
+
+        // get total asset shares in pool to further calculate rewards for each asset
+        uint256 sumOfAssetShares = snastrToken.balanceOf(address(this)) * COLLATERAL_REWARDS_WEIGHT * SHARES_PRECISION / snastrToken.totalSupply();
+        for (uint256 i; i < assets.length; i++ ) {
+            (
+                , , ,
+                address assetBTokenAddress,
+                , ,
+                uint256 assetTotalBorrowed,
+                uint256 assetRewardsWeight,
+                ,
+            ) = assetManager.assetInfo(assets[i]);
+            IERC20Upgradeable bToken = IERC20Upgradeable(assetBTokenAddress);
+            uint256 adapterBalance = bToken.balanceOf(address(this));
+            uint256 totalBalance = bToken.totalSupply();
+            if (totalBalance != 0) {
+                sumOfAssetShares += assetRewardsWeight * adapterBalance * SHARES_PRECISION / totalBalance;
+            }
+        }
+
+        // set accumulated rewards per share for each borrowed asset
+        // needed for sio2 rewards distribution
+        for (uint256 i; i < assets.length;) {
+            (
+                , , ,
+                address assetBTokenAddress,
+                , ,
+                uint256 assetTotalBorrowed,
+                uint256 assetRewardsWeight,
+                ,
+            ) = assetManager.assetInfo(assets[i]);
+
+            if (assetTotalBorrowed > 0) {
+                IERC20Upgradeable bToken = IERC20Upgradeable(assetBTokenAddress);
+
+                uint256 shareOfAsset = bToken.balanceOf(address(this)) * SHARES_PRECISION / bToken.totalSupply();
+
+                // calc rewards amount for asset according to its weight and pool share
+                uint256 assetRewards = rewardsToDistribute * shareOfAsset * assetRewardsWeight / 
+                    sumOfAssetShares;
+                x = assetRewards;
+                assetManager.increaseAccBorrowedRewardsPerShare(assets[i], assetRewards);
+            }
+            
+            unchecked { ++i; }
+        }
+
+        // set accumulated rewards per share for collateral asset
+        uint256 nastrShare = snastrToken.balanceOf(address(this)) * SHARES_PRECISION / snastrToken.totalSupply();
+        uint256 collateralRewards = rewardsToDistribute * nastrShare * COLLATERAL_REWARDS_WEIGHT / sumOfAssetShares;
+        accCollateralRewardsPerShare += (collateralRewards * REWARDS_PRECISION) / totalSupply;
+
+        emit HarvestRewards(msg.sender, _pendingRewards);
+    }
+
+    // @notice Collect accumulated b-tokens and s-tokens
+    function _updatePools() private {
+        uint256 currentSTokenBalance = snastrToken.balanceOf(address(this));
+        string[] memory assets = assetManager.getAssetsNames();
+
+        // if sToken balance was changed, lastSTokenBalance updates
+        if (currentSTokenBalance > lastSTokenBalance) {
+            accSTokensPerShare += ((currentSTokenBalance - lastSTokenBalance) *
+                    REWARDS_PRECISION) / totalSupply;
+        }
+
+        // update bToken debts
+        for (uint256 i; i < assets.length; ) {
+            (
+                , , ,
+                address assetBTokenAddress,
+                ,
+                uint256 assetLastBTokenBalance,
+                uint256 assetTotalBorrowed,
+                , ,
+            ) = assetManager.assetInfo(assets[i]);
+
+            if (assetTotalBorrowed > 0) {
+                uint256 bTokenBalance = IERC20Upgradeable(assetBTokenAddress).balanceOf(address(this));
+                uint256 income;
+
+                if (bTokenBalance > assetLastBTokenBalance) {
+                    income = bTokenBalance - assetLastBTokenBalance;
+                    assetManager.increaseAccBTokensPerShare(assets[i], income);
+                    assetManager.updateLastBTokenBalance(assets[i]);
+                }
+            }
+
+            unchecked { ++i; }
+        }
+        emit UpdatePools(msg.sender);
+    }
+
+    // @notice Update balances of b-tokens, s-tokens and rewards for user
+    function _updateUserRewards(address _user) private {
+        User storage user = userInfo[_user];
+
+        // moving by borrowing assets for current user
+        for (uint256 i; i < user.borrowedAssets.length; ) {
+            (
+                ,
+                string memory assetName,
+                , , , , , ,
+                uint256 assetAccBTokensPerShare,
+                uint256 assetAccBorrowedRewardsPerShare
+            ) = assetManager.assetInfo(user.borrowedAssets[i]);
+
+            // update bToken debt
+            uint256 debtToHarvest = (debts[_user][assetName] * assetAccBTokensPerShare) / 
+                REWARDS_PRECISION - userBTokensIncomeDebt[_user][assetName];
+            debts[_user][assetName] += debtToHarvest;
+            userBTokensIncomeDebt[_user][assetName] = (debts[_user][assetName] * assetAccBTokensPerShare) /
+                REWARDS_PRECISION;
+
+            // harvest sio2 rewards amount for each borrowed asset
+            user.rewards += debts[_user][assetName] * assetAccBorrowedRewardsPerShare / 
+            REWARDS_PRECISION - userBorrowedRewardDebt[_user][assetName];
+
+            userBorrowedRewardDebt[_user][assetName] = debts[_user][assetName] * assetAccBorrowedRewardsPerShare / REWARDS_PRECISION;
+
+            // update total amount of total borrowed for current asset
+            assetManager.increaseAssetsTotalBorrowed(assetName, debtToHarvest);
+
+            unchecked { ++i; }
+        }
+
+        // harvest sio2 rewards for user's collateral
+        user.rewards += user.collateralAmount * accCollateralRewardsPerShare / REWARDS_PRECISION - user.collateralRewardDebt;
+        user.collateralRewardDebt = user.collateralAmount * accCollateralRewardsPerShare / REWARDS_PRECISION;
+
+        // user collateral update
+        uint256 collateralToHarvest = (user.collateralAmount * accSTokensPerShare) / REWARDS_PRECISION -
+            user.sTokensIncomeDebt;
+        user.collateralAmount += collateralToHarvest;
+        user.sTokensIncomeDebt = (user.collateralAmount * accSTokensPerShare) /
+            REWARDS_PRECISION;
+
+        // uncrease total collateral amount by received user's collateral
+        totalSupply += collateralToHarvest;
+
+        emit UpdateUserRewards(_user);
+    }
+
+    // @notice Removes user if his deposit amount equal to zero
+    function _removeUser() private {
+        uint256 lastId = users.length - 1;
+        uint256 userId = userInfo[msg.sender].id;
+        userInfo[users[lastId]].id = userId;
+        delete userInfo[users[userId]];
+        users[userId] = users[lastId];
+        users.pop();
+        emit RemoveUser(msg.sender);
+    }
+
     // @notice Predict healthy of user position without state updates
     // @param _user User address
     // @return User's health factor
@@ -424,249 +745,6 @@ contract Sio2Adapter is Initializable, OwnableUpgradeable, ReentrancyGuardUpgrad
         }
     }
 
-    // @notice Claim rewards by user
-    function claimRewards() external update(msg.sender) {
-        User storage user = userInfo[msg.sender];
-        require(user.rewards > 0, "User has no any rewards");
-        uint256 rewardsToClaim = user.rewards;
-        user.rewards = 0;
-        rewardPool -= rewardsToClaim;
-        rewardToken.safeTransfer(msg.sender, rewardsToClaim);
-
-        emit ClaimRewards(msg.sender, rewardsToClaim);
-    }
-
-    // @notice Withdraw revenue by owner
-    // @param _amount Amount of sio2 tokens
-    function withdrawRevenue(uint256 _amount) external onlyOwner {
-        require(_amount > 0, "Should be greater than zero");
-        require(
-            rewardToken.balanceOf(address(this)) >= _amount,
-            "Not enough SIO2 revenue tokens"
-        );
-
-        revenuePool -= _amount;
-        rewardToken.safeTransfer(msg.sender, _amount);
-
-        emit WithdrawRevenut(msg.sender, _amount);
-    }
-
-    // @notice Repay logic
-    function _repay(string memory _assetName, uint256 _amount, address _user) private {
-        ( , , address assetAddress, , , , , , , ) = assetManager.assetInfo(_assetName);
-        IERC20Upgradeable asset = IERC20Upgradeable(assetAddress);
-
-        // convert price to correct format in case of dot borrowings
-        if (assetAddress == DOT_ADDR) {
-            _amount /= DOT_PRECISION;
-        }
-
-        // check balance of user or liquidator
-        require(debts[_user][_assetName] > 0, "The user has no debt in this asset");
-        require(asset.balanceOf(msg.sender) >= _amount, "Not enough wallet balance to repay");
-        require(_amount > 0, "Amount should be greater than zero");
-        require(debts[_user][_assetName] >= _amount, "Too large amount, debt is smaller");
-
-        // take borrowed asset from user or liquidator and reduce user's debt
-        asset.safeTransferFrom(msg.sender, address(this), _amount);
-
-        debts[_user][_assetName] -= _amount;
-        assetManager.decreaseAssetsTotalBorrowed(_assetName, _amount);
-
-        // remove the asset from the user's borrowedAssets if he is no longer a debtor
-        if (debts[_user][_assetName] == 0) {
-            _removeAssetFromUser(_assetName, _user);
-        }
-
-        asset.approve(address(pool), _amount);
-        pool.repay(assetAddress, _amount, 2, address(this));
-
-        // update user's income debts for bTokens and borrowed rewards
-        _updateUserBorrowedIncomeDebts(_user, _assetName);
-
-        // update bToken's last balance
-        assetManager.updateLastBTokenBalance(_assetName);
-
-        emit Repay(msg.sender, _user, _assetName, _amount);
-    }
-
-    // @notice Removes asset from user's assets list
-    function _removeAssetFromUser(string memory _assetName, address _user) private {
-        string[] storage bAssets = userInfo[_user].borrowedAssets;
-        uint256 assetId = userBorrowedAssetID[_user][_assetName];
-        uint256 lastId = bAssets.length - 1;
-        string memory lastAsset = bAssets[lastId];
-        userBorrowedAssetID[_user][lastAsset] = assetId;
-        bAssets[assetId] = bAssets[lastId];
-        bAssets.pop();
-    }
-
-    // @notice Collect accumulated income of sio2 rewards
-    function _harvestRewards(uint256 _pendingRewards) private {
-        address[] memory bTokens = assetManager.getBTokens();
-        string[] memory assets = assetManager.getAssetsNames();
-        // receiving rewards from incentives controller
-        // this rewards consists of collateral and debt rewards
-        uint256 receivedRewards = incentivesController.claimRewards(
-            bTokens,
-            _pendingRewards,
-            address(this)
-        );
-
-        // cut off the commission part specified in the documentation
-        uint256 comissionPart = receivedRewards / REVENUE_FEE;
-        rewardPool += receivedRewards - comissionPart;
-        revenuePool += comissionPart;
-
-        uint256 rewardsToDistribute = receivedRewards - comissionPart;
-
-        // get total asset shares in pool to further calculate rewards for each asset
-        uint256 sumOfAssetShares = snastrToken.balanceOf(address(this)) * COLLATERAL_REWARDS_WEIGHT * SHARES_PRECISION / snastrToken.totalSupply();
-        for (uint256 i; i < assets.length; i++ ) {
-            (
-                , , ,
-                address assetBTokenAddress,
-                , ,
-                uint256 assetTotalBorrowed,
-                uint256 assetRewardsWeight,
-                ,
-            ) = assetManager.assetInfo(assets[i]);
-            IERC20Upgradeable bToken = IERC20Upgradeable(assetBTokenAddress);
-            uint256 adapterBalance = bToken.balanceOf(address(this));
-            uint256 totalBalance = bToken.totalSupply();
-            if (totalBalance != 0) {
-                sumOfAssetShares += assetRewardsWeight * adapterBalance * SHARES_PRECISION / totalBalance;
-            }
-        }
-
-        // set accumulated rewards per share for each borrowed asset
-        // needed for sio2 rewards distribution
-        for (uint256 i; i < assets.length;) {
-            (
-                , , ,
-                address assetBTokenAddress,
-                , ,
-                uint256 assetTotalBorrowed,
-                uint256 assetRewardsWeight,
-                ,
-            ) = assetManager.assetInfo(assets[i]);
-
-            if (assetTotalBorrowed > 0) {
-                IERC20Upgradeable bToken = IERC20Upgradeable(assetBTokenAddress);
-
-                uint256 shareOfAsset = bToken.balanceOf(address(this)) * SHARES_PRECISION / bToken.totalSupply();
-
-                // calc rewards amount for asset according to its weight and pool share
-                uint256 assetRewards = rewardsToDistribute * shareOfAsset * assetRewardsWeight / 
-                    sumOfAssetShares;
-                x = assetRewards;
-                assetManager.increaseAccBorrowedRewardsPerShare(assets[i], assetRewards);
-            }
-            
-            unchecked { ++i; }
-        }
-
-        // set accumulated rewards per share for collateral asset
-        uint256 nastrShare = snastrToken.balanceOf(address(this)) * SHARES_PRECISION / snastrToken.totalSupply();
-        uint256 collateralRewards = rewardsToDistribute * nastrShare * COLLATERAL_REWARDS_WEIGHT / sumOfAssetShares;
-        accCollateralRewardsPerShare += (collateralRewards * REWARDS_PRECISION) / totalSupply;
-    }
-
-    // @notice Collect accumulated b-tokens and s-tokens
-    function _updatePools() private {
-        uint256 currentSTokenBalance = snastrToken.balanceOf(address(this));
-        string[] memory assets = assetManager.getAssetsNames();
-
-        // if sToken balance was changed, lastSTokenBalance updates
-        if (currentSTokenBalance > lastSTokenBalance) {
-            accSTokensPerShare += ((currentSTokenBalance - lastSTokenBalance) *
-                    REWARDS_PRECISION) / totalSupply;
-        }
-
-        // update bToken debts
-        for (uint256 i; i < assets.length; ) {
-            (
-                , , ,
-                address assetBTokenAddress,
-                ,
-                uint256 assetLastBTokenBalance,
-                uint256 assetTotalBorrowed,
-                , ,
-            ) = assetManager.assetInfo(assets[i]);
-
-            if (assetTotalBorrowed > 0) {
-                uint256 bTokenBalance = IERC20Upgradeable(assetBTokenAddress).balanceOf(address(this));
-                uint256 income;
-
-                if (bTokenBalance > assetLastBTokenBalance) {
-                    income = bTokenBalance - assetLastBTokenBalance;
-                    assetManager.increaseAccBTokensPerShare(assets[i], income);
-                    assetManager.updateLastBTokenBalance(assets[i]);
-                }
-            }
-
-            unchecked { ++i; }
-        }
-    }
-
-    // @notice Update balances of b-tokens, s-tokens and rewards for user
-    function _updateUserRewards(address _user) private {
-        User storage user = userInfo[_user];
-
-        // moving by borrowing assets for current user
-        for (uint256 i; i < user.borrowedAssets.length; ) {
-            (
-                ,
-                string memory assetName,
-                , , , , , ,
-                uint256 assetAccBTokensPerShare,
-                uint256 assetAccBorrowedRewardsPerShare
-            ) = assetManager.assetInfo(user.borrowedAssets[i]);
-
-            // update bToken debt
-            uint256 debtToHarvest = (debts[_user][assetName] * assetAccBTokensPerShare) / 
-                REWARDS_PRECISION - userBTokensIncomeDebt[_user][assetName];
-            debts[_user][assetName] += debtToHarvest;
-            userBTokensIncomeDebt[_user][assetName] = (debts[_user][assetName] * assetAccBTokensPerShare) /
-                REWARDS_PRECISION;
-
-            // harvest sio2 rewards amount for each borrowed asset
-            user.rewards += debts[_user][assetName] * assetAccBorrowedRewardsPerShare / 
-            REWARDS_PRECISION - userBorrowedRewardDebt[_user][assetName];
-
-            userBorrowedRewardDebt[_user][assetName] = debts[_user][assetName] * assetAccBorrowedRewardsPerShare / REWARDS_PRECISION;
-
-            // update total amount of total borrowed for current asset
-            assetManager.increaseAssetsTotalBorrowed(assetName, debtToHarvest);
-
-            unchecked { ++i; }
-        }
-
-        // harvest sio2 rewards for user's collateral
-        user.rewards += user.collateralAmount * accCollateralRewardsPerShare / REWARDS_PRECISION - user.collateralRewardDebt;
-        user.collateralRewardDebt = user.collateralAmount * accCollateralRewardsPerShare / REWARDS_PRECISION;
-
-        // user collateral update
-        uint256 collateralToHarvest = (user.collateralAmount * accSTokensPerShare) / REWARDS_PRECISION -
-            user.sTokensIncomeDebt;
-        user.collateralAmount += collateralToHarvest;
-        user.sTokensIncomeDebt = (user.collateralAmount * accSTokensPerShare) /
-            REWARDS_PRECISION;
-
-        // uncrease total collateral amount by received user's collateral
-        totalSupply += collateralToHarvest;
-    }
-
-    // @notice Removes user if his deposit amount equal to zero
-    function _removeUser() private {
-        uint256 lastId = users.length - 1;
-        uint256 userId = userInfo[msg.sender].id;
-        userInfo[users[lastId]].id = userId;
-        delete userInfo[users[userId]];
-        users[userId] = users[lastId];
-        users.pop();
-    }
-
     // @notice To get the available amount to borrow expressed in usd
     // @param _userAddr User addresss
     // @return toBorrow Amount of collateral in usd available to borrow
@@ -705,68 +783,6 @@ contract Sio2Adapter is Initializable, OwnableUpgradeable, ReentrancyGuardUpgrad
         DataTypes.ReserveConfigurationMap memory data = pool.getConfiguration(_assetAddr);
         liquidationThreshold = data.getLiquidationThreshold();
         liquidationPenalty = data.getLiquidationBonus();
-    }
-
-    // @notice Update all pools
-    function _updates(address _user) private {
-        // check sio2 rewards
-        uint256 pendingRewards = incentivesController.getUserUnclaimedRewards(
-            address(this)
-        );
-
-        // claim sio2 rewards if there is some
-        if (pendingRewards > 0) _harvestRewards(pendingRewards);
-        
-        if (block.number > lastUpdatedBlock) {
-            // update collateral and debt accumulated rewards per share
-            _updatePools();
-
-            // update user's rewards, collateral and debt
-            _updateUserRewards(_user);
-
-            lastUpdatedBlock = block.number;
-        }
-
-        emit Updates(msg.sender, _user);
-    }
-
-    // @notice Update last S token balance
-    function _updateLastSTokenBalance() private {
-        uint256 currentBalance = snastrToken.balanceOf(address(this));
-        if (lastSTokenBalance != currentBalance) {
-            lastSTokenBalance = currentBalance;
-        }
-    }
-
-    // @notice Updates user's b-tokens balance
-    function _updateUserBorrowedIncomeDebts(address _user, string memory _assetName) private {
-        ( , , , , , , , ,
-            uint256 assetAccBTokensPerShare, 
-            uint256 assetAccBorrowedRewardsPerShare
-        ) = assetManager.assetInfo(_assetName);
-
-        // update rewardDebt for user's bTokens
-        userBTokensIncomeDebt[_user][_assetName] = debts[_user][_assetName] * assetAccBTokensPerShare /
-            REWARDS_PRECISION;
-
-        // update rewardDebt for user's borrowed rewards
-        userBorrowedRewardDebt[_user][_assetName] = debts[_user][_assetName] * assetAccBorrowedRewardsPerShare /
-            REWARDS_PRECISION;
-    }
-
-    // @notice Updates user's s-tokens balance
-    function _updateUserCollateralIncomeDebts(User storage _user) private {
-        // update rewardDebt for user's collateral
-        _user.sTokensIncomeDebt = _user.collateralAmount * accSTokensPerShare / REWARDS_PRECISION;
-
-        // update rewardDebt for user's collateral rewards
-        _user.collateralRewardDebt = _user.collateralAmount * accCollateralRewardsPerShare / REWARDS_PRECISION;
-    }
-    
-    // @dev setup to get collateral info
-    function setup() public onlyOwner {
-        ( , , , , collateralLTV, ) = pool.getUserAccountData(address(this));
-        ( , , , collateralLT, , ) = pool.getUserAccountData(address(this));
     }
 
     // @notice Get user info
