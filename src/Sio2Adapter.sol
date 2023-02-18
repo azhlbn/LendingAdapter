@@ -313,7 +313,7 @@ contract Sio2Adapter is Initializable, OwnableUpgradeable, ReentrancyGuardUpgrad
         string memory _debtAsset,
         address _user,
         uint256 _debtToCover
-    ) external nonReentrant {
+    ) external {
         ( , , address debtAssetAddr, , , , , , , ) = assetManager.assetInfo(_debtAsset);
         address liquidator = msg.sender;
 
