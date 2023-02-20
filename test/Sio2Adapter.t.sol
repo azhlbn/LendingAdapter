@@ -109,7 +109,6 @@ contract Sio2AdapterTes is Test {
 
         assertEq(snastr.balanceOf(address(adapter)), amount);
         assertEq(nastr.balanceOf(user), bal - amount);
-        assertEq(snastr.balanceOf(address(adapter)), amount);
 
         vm.stopPrank();
     }

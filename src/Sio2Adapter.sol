@@ -78,8 +78,6 @@ contract Sio2Adapter is Initializable, OwnableUpgradeable, ReentrancyGuardUpgrad
         uint256 sTokensIncomeDebt;
     }
 
-    uint256 public x;
-
     //Events
     event Supply(address indexed user, uint256 indexed amount);
     event Withdraw(address indexed user, uint256 indexed amount);
@@ -145,7 +143,7 @@ contract Sio2Adapter is Initializable, OwnableUpgradeable, ReentrancyGuardUpgrad
 
         User storage user = userInfo[msg.sender];
 
-        // check for new user. And create new if there is no such
+        // New user check. Add new if there is no such
         if (userInfo[msg.sender].addr == address(0)) {
             user.id = users.length;
             user.addr = msg.sender;
@@ -184,7 +182,7 @@ contract Sio2Adapter is Initializable, OwnableUpgradeable, ReentrancyGuardUpgrad
             ( , uint256 availableColToWithdraw) = availableCollateralUSD(_user);
             require(
                 // user can't withdraw collateral if his debt is too large
-                availableColToWithdraw >= _toUSD(address(nastr), _amount),
+                availableColToWithdraw >= toUSD(address(nastr), _amount),
                 "Not enough deposited nASTR"
             );
         }
@@ -221,7 +219,7 @@ contract Sio2Adapter is Initializable, OwnableUpgradeable, ReentrancyGuardUpgrad
         ( , , address assetAddr, , , , , , , ) = assetManager.assetInfo(_assetName);
         (uint256 availableColToBorrow, ) = availableCollateralUSD(msg.sender);
         require(
-            _toUSD(assetAddr, _amount) <= availableColToBorrow,
+            toUSD(assetAddr, _amount) <= availableColToBorrow,
             "Not enough collateral to borrow"
         );
         require(assetAddr != address(0), "Wrong asset!");
@@ -323,7 +321,7 @@ contract Sio2Adapter is Initializable, OwnableUpgradeable, ReentrancyGuardUpgrad
         // get total user debt in usd and a specific asset
         uint256 userTotalDebtInUSD = calcEstimateUserDebtUSD(_user);
         uint256 userDebtInAsset = debts[_user][_debtAsset];
-        uint256 debtToCoverUSD = _toUSD(debtAssetAddr, _debtToCover);
+        uint256 debtToCoverUSD = toUSD(debtAssetAddr, _debtToCover);
 
         // make sure that _debtToCover not exceeds 50% of user total debt and 100% of chosen asset debt
         require(_debtToCover <= userDebtInAsset, "_debtToCover exceeds the user's debt amount");
@@ -334,8 +332,8 @@ contract Sio2Adapter is Initializable, OwnableUpgradeable, ReentrancyGuardUpgrad
 
         // counting collateral before sending
         (, uint256 liquidationPenalty) = _getAssetParameters(debtAssetAddr);
-        uint256 collateralToSendInUSD = _toUSD(debtAssetAddr, _debtToCover) * liquidationPenalty / RISK_PARAMS_PRECISION;
-        uint256 collateralToSend = _fromUSD(address(nastr), collateralToSendInUSD);
+        uint256 collateralToSendInUSD = toUSD(debtAssetAddr, _debtToCover) * liquidationPenalty / RISK_PARAMS_PRECISION;
+        uint256 collateralToSend = fromUSD(address(nastr), collateralToSendInUSD);
 
         // withdraw collateral with liquidation penalty and send to liquidator
         _withdraw(_user, collateralToSend);
@@ -349,7 +347,7 @@ contract Sio2Adapter is Initializable, OwnableUpgradeable, ReentrancyGuardUpgrad
     function getHF(address _user) public update(_user) returns (uint256 hf) {
         uint256 debtUSD = calcEstimateUserDebtUSD(_user);
         require(debtUSD > 0, "User has no debts");
-        uint256 collateralUSD = _toUSD(address(nastr), userInfo[_user].collateralAmount);
+        uint256 collateralUSD = toUSD(address(nastr), userInfo[_user].collateralAmount);
         hf = collateralUSD * collateralLT * 1e18 / RISK_PARAMS_PRECISION / debtUSD;
     }
 
@@ -553,7 +551,7 @@ contract Sio2Adapter is Initializable, OwnableUpgradeable, ReentrancyGuardUpgrad
                 // calc rewards amount for asset according to its weight and pool share
                 uint256 assetRewards = rewardsToDistribute * shareOfAsset * assetRewardsWeight / 
                     sumOfAssetShares;
-                x = assetRewards;
+
                 assetManager.increaseAccBorrowedRewardsPerShare(assets[i], assetRewards);
             }
             
@@ -699,7 +697,7 @@ contract Sio2Adapter is Initializable, OwnableUpgradeable, ReentrancyGuardUpgrad
         estUserCollateral += estUserCollateral * estAccSTokensPerShare / 
             REWARDS_PRECISION - user.sTokensIncomeDebt;
 
-        coll = _toUSD(address(nastr), estUserCollateral);
+        coll = toUSD(address(nastr), estUserCollateral);
     }
 
     // @notice Check user debt amount without state updates
@@ -739,7 +737,7 @@ contract Sio2Adapter is Initializable, OwnableUpgradeable, ReentrancyGuardUpgrad
                 debt *= DOT_PRECISION;
             }
 
-            debtUSD += _toUSD(assetAddr, debt);
+            debtUSD += toUSD(assetAddr, debt);
             
             unchecked { ++i; }
         }
@@ -764,13 +762,13 @@ contract Sio2Adapter is Initializable, OwnableUpgradeable, ReentrancyGuardUpgrad
     }
 
     // @notice Convert tokens value to USD
-    function _toUSD(address _asset, uint256 _amount) private view returns (uint256) {
+    function toUSD(address _asset, uint256 _amount) public view returns (uint256) {
         uint256 price = priceOracle.getAssetPrice(_asset);
         return (_amount * price) / PRICE_PRECISION;
     }
 
     // @notice Convert tokens value from USD
-    function _fromUSD(address _asset, uint256 _amount) private view returns (uint256) {
+    function fromUSD(address _asset, uint256 _amount) public view returns (uint256) {
         uint256 price = priceOracle.getAssetPrice(_asset);
         return _amount * PRICE_PRECISION / price;
     }
