@@ -89,8 +89,6 @@ contract Sio2AdapterTes is Test {
         
         vm.prank(user);
         nastr.approve(address(adapter), 1e36);
-
-        adapter.setup();
     }
 
     function testSupply() public {

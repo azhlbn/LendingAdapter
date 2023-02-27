@@ -122,6 +122,7 @@ contract Sio2Adapter is Initializable, OwnableUpgradeable, ReentrancyGuardUpgrad
         assetManager.addBTokens(address(_snastrToken));
         priceOracle = _priceOracle;
         lastUpdatedBlock = block.number;
+        (collateralLT, , collateralLTV) = getAssetParameters(address(nastr));
 
         _updateLastSTokenBalance();
     }
@@ -331,7 +332,7 @@ contract Sio2Adapter is Initializable, OwnableUpgradeable, ReentrancyGuardUpgrad
         _repay(_debtAsset, _debtToCover, _user);
 
         // counting collateral before sending
-        (, uint256 liquidationPenalty) = _getAssetParameters(debtAssetAddr);
+        (, uint256 liquidationPenalty, ) = getAssetParameters(debtAssetAddr);
         uint256 collateralToSendInUSD = toUSD(debtAssetAddr, _debtToCover) * liquidationPenalty / RISK_PARAMS_PRECISION;
         uint256 collateralToSend = fromUSD(address(nastr), collateralToSendInUSD);
 
@@ -349,13 +350,6 @@ contract Sio2Adapter is Initializable, OwnableUpgradeable, ReentrancyGuardUpgrad
         require(debtUSD > 0, "User has no debts");
         uint256 collateralUSD = toUSD(address(nastr), userInfo[_user].collateralAmount);
         hf = collateralUSD * collateralLT * 1e18 / RISK_PARAMS_PRECISION / debtUSD;
-    }
-
-    // @dev setup to get collateral info
-    function setup() public onlyOwner {
-        ( , , , , collateralLTV, ) = pool.getUserAccountData(address(this));
-        ( , , , collateralLT, , ) = pool.getUserAccountData(address(this));
-        emit SetupCollateralParams(msg.sender, collateralLTV, collateralLT);
     }
 
     // @notice Updates user's s-tokens balance
@@ -773,13 +767,15 @@ contract Sio2Adapter is Initializable, OwnableUpgradeable, ReentrancyGuardUpgrad
     }
 
     // @notice Used to get assets params
-    function _getAssetParameters(address _assetAddr) private view returns (
+    function getAssetParameters(address _assetAddr) private view returns (
         uint256 liquidationThreshold,
-        uint256 liquidationPenalty
-        ) {
+        uint256 liquidationPenalty,
+        uint256 loanToValue
+    ) {
         DataTypes.ReserveConfigurationMap memory data = pool.getConfiguration(_assetAddr);
         liquidationThreshold = data.getLiquidationThreshold();
         liquidationPenalty = data.getLiquidationBonus();
+        loanToValue = data.getLtv();
     }
 
     // @notice Get user info
