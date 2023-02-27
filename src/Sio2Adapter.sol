@@ -96,10 +96,10 @@ contract Sio2Adapter is Initializable, OwnableUpgradeable, ReentrancyGuardUpgrad
     event UpdateLastSTokenBalance(address indexed who, uint256 currentBalance);
     event SetupCollateralParams(address indexed who, uint256 collateralLTV, uint256 collaterlLT);
 
-    /* /// @custom:oz-upgrades-unsafe-allow constructor
+    /// @custom:oz-upgrades-unsafe-allow constructor
     constructor() {
         _disableInitializers();
-    } */
+    }
 
     function initialize(
         ISio2LendingPool _pool,
