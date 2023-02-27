@@ -96,10 +96,10 @@ contract Sio2Adapter is Initializable, OwnableUpgradeable, ReentrancyGuardUpgrad
     event UpdateLastSTokenBalance(address indexed who, uint256 currentBalance);
     event SetupCollateralParams(address indexed who, uint256 collateralLTV, uint256 collaterlLT);
 
-    /// @custom:oz-upgrades-unsafe-allow constructor
+    /* /// @custom:oz-upgrades-unsafe-allow constructor
     constructor() {
         _disableInitializers();
-    }
+    } */
 
     function initialize(
         ISio2LendingPool _pool,
@@ -226,7 +226,7 @@ contract Sio2Adapter is Initializable, OwnableUpgradeable, ReentrancyGuardUpgrad
         require(assetAddr != address(0), "Wrong asset!");
 
         // convert price to correct format in case of dot borrowings
-        if (assetAddr == DOT_ADDR) {
+        if (keccak256(abi.encodePacked(_assetName)) == keccak256(abi.encodePacked("DOT"))) {
             _amount /= DOT_PRECISION;
         }
 
@@ -269,9 +269,9 @@ contract Sio2Adapter is Initializable, OwnableUpgradeable, ReentrancyGuardUpgrad
     // @notice Allows the user to fully repay his debt
     // @param _assetName Asset name
     function repayFull(string memory _assetName) external update(msg.sender) nonReentrant {
-        ( , , address assetAddr, , , , , , , ) = assetManager.assetInfo(_assetName);
+        ( , string memory assetName, , , , , , , , ) = assetManager.assetInfo(_assetName);
         uint256 fullDebtAmount = debts[msg.sender][_assetName];
-        if (assetAddr == DOT_ADDR) {
+        if (keccak256(abi.encodePacked(assetName)) == keccak256(abi.encodePacked("DOT"))) {
             fullDebtAmount *= DOT_PRECISION;
         }
         _repay(_assetName, fullDebtAmount, msg.sender);
@@ -442,7 +442,7 @@ contract Sio2Adapter is Initializable, OwnableUpgradeable, ReentrancyGuardUpgrad
         IERC20Upgradeable asset = IERC20Upgradeable(assetAddress);
 
         // convert price to correct format in case of dot borrowings
-        if (assetAddress == DOT_ADDR) {
+        if (keccak256(abi.encodePacked(_assetName)) == keccak256(abi.encodePacked("DOT"))) {
             _amount /= DOT_PRECISION;
         }
 
@@ -726,7 +726,7 @@ contract Sio2Adapter is Initializable, OwnableUpgradeable, ReentrancyGuardUpgrad
             }
 
             // convert price to correct format in case of dot borrowings
-            if (assetAddr == DOT_ADDR) {
+            if (keccak256(abi.encodePacked(assetName)) == keccak256(abi.encodePacked("DOT"))) {
                 debt *= DOT_PRECISION;
             }
 

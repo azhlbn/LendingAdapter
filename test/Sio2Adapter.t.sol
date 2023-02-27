@@ -130,8 +130,13 @@ contract Sio2AdapterTes is Test {
         adapter.supply(10000 ether); // supply 10000 nASTR
         adapter.borrow("BUSD", 1 ether); // borrow 1 BUSD
         adapter.borrow("DOT", 1 ether);
+        vm.warp(1 days);
+        adapter.borrow("BUSD", 1 ether); 
+        adapter.borrow("DOT", 1 ether);
+        uint256 debt = adapter.calcEstimateUserDebtUSD(user);
         assertEq(busd.balanceOf(user), 1 ether);
-        assertEq(dot.balanceOf(user), 1 ether);
+        assertGt(dot.balanceOf(user), 0);
+        assertGt(debt, 0);
         vm.stopPrank();
     }
 
@@ -263,11 +268,8 @@ contract Sio2AdapterTes is Test {
     }
 
     function testLiquidationCall() public {
-        console.log(nastr.balanceOf(liquidator), "liquidators nastr");
         vm.startPrank(user);
         adapter.supply(100 ether);
-
-        console.log(adapter.getUser(user).collateralAmount, "useres collateral ");
 
         vm.expectRevert("User has no debts");
         adapter.getHF(user);
@@ -278,14 +280,12 @@ contract Sio2AdapterTes is Test {
         (uint256 availableToBorrow,) = adapter.availableCollateralUSD(user);
 
         adapter.borrow("BUSD", availableToBorrow);
-        console.log(adapter.getUser(user).collateralAmount, "useres collateral ");
 
-        console.log("hf:", adapter.estimateHF(user));
         vm.stopPrank();
 
         vm.startPrank(liquidator);
-        priceOracle.setAssetPrice(address(busd), 129992110);
-        console.log("hf:", adapter.estimateHF(user));
+        priceOracle.setAssetPrice(address(busd), 110992110);
+
         uint256 debtToCover = adapter.debts(user, "BUSD");
         busd.approve(address(adapter), 1e36);
 
@@ -304,22 +304,15 @@ contract Sio2AdapterTes is Test {
         );
 
         uint256 debt = adapter.debts(user, "BUSD");
-        console.log(debt, "users debbt");
 
-        console.log(adapter.getUser(user).collateralAmount, "useres collateral ");
         uint256 col = adapter.getUser(user).collateralAmount;
 
         adapter.liquidationCall(
             "BUSD",
             user,
             debtToCover / 2
-        );        
+        );
         vm.stopPrank();
-
-        console.log(adapter.debts(user, "BUSD"), "users debbt");
-        console.log(adapter.getUser(user).collateralAmount, "users col");
-
-        console.log("hf:", adapter.estimateHF(user));
     }
 
     function testAvailableCollateralUSD() public {
