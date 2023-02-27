@@ -88,18 +88,18 @@ contract Sio2Adapter is Initializable, OwnableUpgradeable, ReentrancyGuardUpgrad
     event WithdrawRevenue(address indexed who, uint256 indexed amount);
     event Repay(address indexed who, address indexed user, string indexed assetName, uint256 amount);
     event Updates(address indexed who, address indexed user);
-    event RemoveAssetFromUser(address user, string assetName);
-    event HarvestRewards(address who, uint256 pendingRewards);
-    event UpdatePools(address who);
-    event UpdateUserRewards(address user);
-    event RemoveUser(address user);
-    event UpdateLastSTokenBalance(address who, uint256 currentBalance);
-    event SetupCollateralParams(address who, uint256 collateralLTV, uint256 collaterlLT);
+    event RemoveAssetFromUser(address indexed user, string assetName);
+    event HarvestRewards(address indexed who, uint256 pendingRewards);
+    event UpdatePools(address indexed who);
+    event UpdateUserRewards(address indexed user);
+    event RemoveUser(address indexed user);
+    event UpdateLastSTokenBalance(address indexed who, uint256 currentBalance);
+    event SetupCollateralParams(address indexed who, uint256 collateralLTV, uint256 collaterlLT);
 
-    /* /// @custom:oz-upgrades-unsafe-allow constructor
+    /// @custom:oz-upgrades-unsafe-allow constructor
     constructor() {
         _disableInitializers();
-    } */
+    }
 
     function initialize(
         ISio2LendingPool _pool,
@@ -518,8 +518,7 @@ contract Sio2Adapter is Initializable, OwnableUpgradeable, ReentrancyGuardUpgrad
             (
                 , , ,
                 address assetBTokenAddress,
-                , ,
-                uint256 assetTotalBorrowed,
+                , , ,
                 uint256 assetRewardsWeight,
                 ,
             ) = assetManager.assetInfo(assets[i]);
