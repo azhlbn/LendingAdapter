@@ -113,6 +113,7 @@ contract Sio2Adapter is Initializable, OwnableUpgradeable, ReentrancyGuardUpgrad
 
     ) public initializer {
         __Ownable_init();
+        __ReentrancyGuard_init();
         
         assetManager = _assetManager;
         pool = _pool;

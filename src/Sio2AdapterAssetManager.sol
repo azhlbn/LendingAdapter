@@ -53,6 +53,7 @@ contract Sio2AdapterAssetManager is Initializable, OwnableUpgradeable, Reentranc
         ISio2LendingPool _pool
     ) public initializer {
         __Ownable_init();
+        __ReentrancyGuard_init();
 
         pool = _pool;
     }
