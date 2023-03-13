@@ -10,7 +10,7 @@ import "./interfaces/ISio2PriceOracle.sol";
 import "./interfaces/ISio2IncentivesController.sol";
 import "./Sio2AdapterAssetManager.sol";
 
-contract Sio2AdapterFixed is Initializable, OwnableUpgradeable, ReentrancyGuardUpgradeable {
+contract Sio2Adapter is Initializable, OwnableUpgradeable, ReentrancyGuardUpgradeable {
     using AddressUpgradeable for address payable;
     using AddressUpgradeable for address;
     using SafeERC20Upgradeable for IERC20Upgradeable;

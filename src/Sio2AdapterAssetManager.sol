@@ -8,7 +8,7 @@ import "@openzeppelin-upgradeable/contracts/security/ReentrancyGuardUpgradeable.
 import "./interfaces/ISio2LendingPool.sol";
 import "./Sio2Adapter.sol";
 
-contract Sio2AdapterAssetManagerFixed is Initializable, OwnableUpgradeable, ReentrancyGuardUpgradeable {
+contract Sio2AdapterAssetManager is Initializable, OwnableUpgradeable, ReentrancyGuardUpgradeable {
     using ReserveConfiguration for DataTypes.ReserveConfigurationMap; // used to extract risk parameters of an asset
 
     //Interfaces
