@@ -32,6 +32,7 @@ contract Sio2Adapter is Initializable, OwnableUpgradeable, ReentrancyGuardUpgrad
     uint256 public revenuePool;
     uint256 public collateralLTV; // nASTR Loan To Value
     uint256 public collateralLT; // nASTR Liquidation Threshold
+    uint256 public maxAmountToBorrow;
 
     uint256 public accCollateralRewardsPerShare; // accumulated collateral rewards per share
     uint256 public accSTokensPerShare; // accumulated sTokens per share
@@ -122,6 +123,7 @@ contract Sio2Adapter is Initializable, OwnableUpgradeable, ReentrancyGuardUpgrad
         priceOracle = _priceOracle;
         lastUpdatedBlock = block.number;
         (collateralLT, , collateralLTV) = getAssetParameters(address(nastr));
+        setMaxAmountToBorrow(15); // set the max amount of borrowed assets
 
         _updateLastSTokenBalance();
     }
@@ -240,6 +242,7 @@ contract Sio2Adapter is Initializable, OwnableUpgradeable, ReentrancyGuardUpgrad
             user.borrowedAssets.length == 0 || 
             keccak256(abi.encode(user.borrowedAssets[assetId])) != keccak256(abi.encode(_assetName))
         ) {
+            require(user.borrowedAssets.length < maxAmountToBorrow, "Max amount of borrowed assets has been reached");
             userBorrowedAssetID[msg.sender][_assetName] = user.borrowedAssets.length;
             user.borrowedAssets.push(_assetName);
         }
@@ -313,14 +316,14 @@ contract Sio2Adapter is Initializable, OwnableUpgradeable, ReentrancyGuardUpgrad
         uint256 _debtToCover
     ) external {
         ( , , address debtAssetAddr, , , , , , , ) = assetManager.assetInfo(_debtAsset);
-        address liquidator = msg.sender;
 
-        // check user HF and update state
-        require(getHF(_user) < 1e18, "User has healthy enough position");
+        // check user HF, debtUSD and update state
+        (uint256 hf, uint256 userTotalDebtInUSD) = getUpdatedInfo(_user);
+        require(hf < 1e18, "User has healthy enough position");
         
-        // get total user debt in usd and a specific asset
-        uint256 userTotalDebtInUSD = calcEstimateUserDebtUSD(_user);
+        // get user's debt in a specific asset
         uint256 userDebtInAsset = debts[_user][_debtAsset];
+        
         uint256 debtToCoverUSD = toUSD(debtAssetAddr, _debtToCover);
 
         // make sure that _debtToCover not exceeds 50% of user total debt and 100% of chosen asset debt
@@ -338,14 +341,14 @@ contract Sio2Adapter is Initializable, OwnableUpgradeable, ReentrancyGuardUpgrad
         // withdraw collateral with liquidation penalty and send to liquidator
         _withdraw(_user, collateralToSend);
 
-        emit LiquidationCall(liquidator, _user, _debtAsset, _debtToCover);
+        emit LiquidationCall(msg.sender, _user, _debtAsset, _debtToCover);
     }
 
     // @dev HF = sum(collateral_i * liqThreshold_i) / totalBorrowsInUSD
     // @notice to get HF for check healthy of user position
     // @param _user User address
-    function getHF(address _user) public update(_user) returns (uint256 hf) {
-        uint256 debtUSD = calcEstimateUserDebtUSD(_user);
+    function getUpdatedInfo(address _user) public update(_user) returns (uint256 hf, uint256 debtUSD) {
+        debtUSD = calcEstimateUserDebtUSD(_user);
         require(debtUSD > 0, "User has no debts");
         uint256 collateralUSD = toUSD(address(nastr), userInfo[_user].collateralAmount);
         hf = collateralUSD * collateralLT * 1e18 / RISK_PARAMS_PRECISION / debtUSD;
@@ -434,6 +437,12 @@ contract Sio2Adapter is Initializable, OwnableUpgradeable, ReentrancyGuardUpgrad
 
         emit WithdrawRevenue(msg.sender, _amount);
     }
+
+    // @notice Sets the maximum amount of borrowed assets by the owner
+    // @param _amount Amount of assets
+    function setMaxAmountToBorrow(uint256 _amount) public onlyOwner {
+        maxAmountToBorrow = _amount;
+    } 
 
     // @notice Repay logic
     function _repay(string memory _assetName, uint256 _amount, address _user) private {
