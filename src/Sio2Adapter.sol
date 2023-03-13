@@ -119,7 +119,6 @@ contract Sio2Adapter is Initializable, OwnableUpgradeable, ReentrancyGuardUpgrad
         snastrToken = _snastrToken;
         rewardToken = _rewardToken;
         incentivesController = _incentivesController;
-        assetManager.addBTokens(address(_snastrToken));
         priceOracle = _priceOracle;
         lastUpdatedBlock = block.number;
         (collateralLT, , collateralLTV) = getAssetParameters(address(nastr));
@@ -493,8 +492,10 @@ contract Sio2Adapter is Initializable, OwnableUpgradeable, ReentrancyGuardUpgrad
         string[] memory assets = assetManager.getAssetsNames();
         // receiving rewards from incentives controller
         // this rewards consists of collateral and debt rewards
+        address[] memory rewardableTokens = new address[](bTokens.length + 1);
+        rewardableTokens[bTokens.length + 1] = address(snastrToken);
         uint256 receivedRewards = incentivesController.claimRewards(
-            bTokens,
+            rewardableTokens,
             _pendingRewards,
             address(this)
         );

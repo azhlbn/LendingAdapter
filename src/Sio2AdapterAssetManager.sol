@@ -1,5 +1,5 @@
-pragma solidity 0.8.4;
 //SPDX-License-Identifier: MIT
+pragma solidity 0.8.4;
 
 import "@openzeppelin-upgradeable/contracts/utils/AddressUpgradeable.sol";
 import "@openzeppelin-upgradeable/contracts/access/OwnableUpgradeable.sol";
@@ -38,7 +38,6 @@ contract Sio2AdapterAssetManager is Initializable, OwnableUpgradeable, Reentranc
 
     event AddAsset(address owner, string indexed assetName, address indexed assetAddress);
     event RemoveAsset(address owner, string indexed assetName);
-    event AddBToken(address who, address token);
     event SetAdapter(address who, address adapterAddress);
 
     /* /// @custom:oz-upgrades-unsafe-allow constructor
@@ -123,13 +122,6 @@ contract Sio2AdapterAssetManager is Initializable, OwnableUpgradeable, Reentranc
         delete assetInfo[_assetName];
 
         emit RemoveAsset(msg.sender, _assetName);
-    }
-
-    // @notice Add b-token
-    function addBTokens(address _bToken) public {
-        bTokens.push(_bToken);
-
-        emit AddBToken(msg.sender, _bToken);
     }
 
     function increaseAssetsTotalBorrowed(string memory _assetName, uint256 _amount) external onlyAdapter {
