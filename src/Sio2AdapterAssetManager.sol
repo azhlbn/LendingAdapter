@@ -8,7 +8,7 @@ import "@openzeppelin-upgradeable/contracts/security/ReentrancyGuardUpgradeable.
 import "./interfaces/ISio2LendingPool.sol";
 import "./Sio2Adapter.sol";
 
-contract Sio2AdapterAssetManager is Initializable, OwnableUpgradeable, ReentrancyGuardUpgradeable {
+contract Sio2AdapterAssetManagerFixed is Initializable, OwnableUpgradeable, ReentrancyGuardUpgradeable {
     using ReserveConfiguration for DataTypes.ReserveConfigurationMap; // used to extract risk parameters of an asset
 
     //Interfaces
@@ -16,7 +16,6 @@ contract Sio2AdapterAssetManager is Initializable, OwnableUpgradeable, Reentranc
     Sio2Adapter public adapter;
 
     uint256 private constant REWARDS_PRECISION = 1e12; // A big number to perform mul and div operations
-    uint256 private constant COLLATERAL_REWARDS_WEIGHT = 5; // 5% of all sio2 collateral rewards go to the nASTR pool
 
     string[] public assets;
     address[] public bTokens;
@@ -24,8 +23,6 @@ contract Sio2AdapterAssetManager is Initializable, OwnableUpgradeable, Reentranc
     mapping(string => Asset) public assetInfo;
     mapping(address => bool) public bTokenExist;
     mapping(string => bool) public assetNameExist;
-
-    address[] public assetsAddresses;
 
     struct Asset {
         uint256 id;
@@ -93,7 +90,6 @@ contract Sio2AdapterAssetManager is Initializable, OwnableUpgradeable, Reentranc
         });
 
         assets.push(asset.name);
-        assetsAddresses.push(asset.addr);
         assetInfo[_assetName] = asset;
         bTokens.push(_bToken);
 
@@ -116,11 +112,6 @@ contract Sio2AdapterAssetManager is Initializable, OwnableUpgradeable, Reentranc
         string memory lastAsset = assets[assets.length - 1];
         assets[asset.id] = lastAsset;
         assets.pop();
-
-        // remove from assetsAddresses
-        address lastAddr = assetsAddresses[assetsAddresses.length - 1];
-        assetsAddresses[asset.id] = lastAddr;
-        assetsAddresses.pop();
 
         // remove addr from bTokens
         address lastBAddr = bTokens[bTokens.length - 1];
@@ -160,21 +151,21 @@ contract Sio2AdapterAssetManager is Initializable, OwnableUpgradeable, Reentranc
         asset.lastBTokenBalance = IERC20Upgradeable(asset.bTokenAddress).balanceOf(address(adapter));
     }
 
-    function setAdapter(Sio2Adapter _adapter) public onlyOwner {
+    function setAdapter(Sio2Adapter _adapter) external onlyOwner {
         adapter = _adapter;
 
         emit SetAdapter(msg.sender, address(_adapter));
     }
 
-    function getBTokens() public view returns (address[] memory) {
+    function getBTokens() external view returns (address[] memory) {
         return bTokens;
     }
 
-    function getAssetsNames() public view returns (string[] memory) {
+    function getAssetsNames() external view returns (string[] memory) {
         return assets;
     }
 
-    function getInfo(string memory assetName) public view returns (uint256) {
+    function getRewardsWeight(string memory assetName) external view returns (uint256) {
         return assetInfo[assetName].rewardsWeight;
     }
 }

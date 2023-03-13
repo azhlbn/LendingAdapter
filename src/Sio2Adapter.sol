@@ -10,7 +10,7 @@ import "./interfaces/ISio2PriceOracle.sol";
 import "./interfaces/ISio2IncentivesController.sol";
 import "./Sio2AdapterAssetManager.sol";
 
-contract Sio2Adapter is Initializable, OwnableUpgradeable, ReentrancyGuardUpgradeable {
+contract Sio2AdapterFixed is Initializable, OwnableUpgradeable, ReentrancyGuardUpgradeable {
     using AddressUpgradeable for address payable;
     using AddressUpgradeable for address;
     using SafeERC20Upgradeable for IERC20Upgradeable;
@@ -45,8 +45,6 @@ contract Sio2Adapter is Initializable, OwnableUpgradeable, ReentrancyGuardUpgrad
     uint256 private constant COLLATERAL_REWARDS_WEIGHT = 5; // 5% of all sio2 collateral rewards go to the nASTR pool
     uint256 public constant REVENUE_FEE = 10; // 10% of rewards goes to the revenue pool
 
-    address public constant DOT_ADDR = 0xFFfFfFffFFfffFFfFFfFFFFFffFFFffffFfFFFfF;
-
     // mapping(string => Asset) public assetInfo;
     mapping(address => User) public userInfo;
     mapping(address => mapping(string => uint256)) public debts;
@@ -55,19 +53,6 @@ contract Sio2Adapter is Initializable, OwnableUpgradeable, ReentrancyGuardUpgrad
     mapping(address => mapping(string => uint256)) public userBorrowedRewardDebt;
 
     address[] public users;
-
-    struct Asset {
-        uint256 id;
-        string name;
-        address addr;
-        address bTokenAddress;
-        uint256 liquidationThreshold;
-        uint256 lastBTokenBalance;
-        uint256 totalBorrowed;
-        uint256 rewardsWeight;
-        uint256 accBTokensPerShare;
-        uint256 accBorrowedRewardsPerShare;
-    }
 
     struct User {
         uint256 id;
@@ -95,7 +80,6 @@ contract Sio2Adapter is Initializable, OwnableUpgradeable, ReentrancyGuardUpgrad
     event UpdateUserRewards(address indexed user);
     event RemoveUser(address indexed user);
     event UpdateLastSTokenBalance(address indexed who, uint256 currentBalance);
-    event SetupCollateralParams(address indexed who, uint256 collateralLTV, uint256 collaterlLT);
 
     /// @custom:oz-upgrades-unsafe-allow constructor
     constructor() {
@@ -123,7 +107,7 @@ contract Sio2Adapter is Initializable, OwnableUpgradeable, ReentrancyGuardUpgrad
         incentivesController = _incentivesController;
         priceOracle = _priceOracle;
         lastUpdatedBlock = block.number;
-        (collateralLT, , collateralLTV) = getAssetParameters(address(nastr));
+        (collateralLT, , collateralLTV) = getAssetParameters(address(nastr)); // set collateral params
         setMaxAmountToBorrow(15); // set the max amount of borrowed assets
 
         _updateLastSTokenBalance();
@@ -238,7 +222,7 @@ contract Sio2Adapter is Initializable, OwnableUpgradeable, ReentrancyGuardUpgrad
         uint256 assetId = userBorrowedAssetID[msg.sender][_assetName];
         if (
             user.borrowedAssets.length == 0 || 
-            keccak256(abi.encode(user.borrowedAssets[assetId])) != keccak256(abi.encode(_assetName))
+            keccak256(abi.encodePacked(user.borrowedAssets[assetId])) != keccak256(abi.encodePacked(_assetName))
         ) {
             require(user.borrowedAssets.length < maxAmountToBorrow, "Max amount of borrowed assets has been reached");
             userBorrowedAssetID[msg.sender][_assetName] = user.borrowedAssets.length;
@@ -389,8 +373,8 @@ contract Sio2Adapter is Initializable, OwnableUpgradeable, ReentrancyGuardUpgrad
         uint256 currentBalance = snastrToken.balanceOf(address(this));
         if (lastSTokenBalance != currentBalance) {
             lastSTokenBalance = currentBalance;
+            emit UpdateLastSTokenBalance(msg.sender, currentBalance);
         }
-        emit UpdateLastSTokenBalance(msg.sender, currentBalance);
     }
 
     // @notice Updates user's b-tokens balance
@@ -432,6 +416,7 @@ contract Sio2Adapter is Initializable, OwnableUpgradeable, ReentrancyGuardUpgrad
             rewardToken.balanceOf(address(this)) >= _amount,
             "Not enough SIO2 revenue tokens"
         );
+        require(_amount <= revenuePool, "Not enough tokens in revenue pool");
 
         revenuePool -= _amount;
         rewardToken.safeTransfer(msg.sender, _amount);
@@ -672,7 +657,7 @@ contract Sio2Adapter is Initializable, OwnableUpgradeable, ReentrancyGuardUpgrad
     // @notice Predict healthy of user position without state updates
     // @param _user User address
     // @return User's health factor
-    function estimateHF(address _user) public view returns (uint256 hf) {
+    function estimateHF(address _user) external view returns (uint256 hf) {
         uint256 collateralUSD = calcEstimateUserCollateralUSD(_user);
 
         // get est borrowed accRPS for assets
@@ -792,7 +777,15 @@ contract Sio2Adapter is Initializable, OwnableUpgradeable, ReentrancyGuardUpgrad
     // @notice Get user info
     // @param _user User address
     // @return User's params
-    function getUser(address _user) public view returns (User memory) {
+    function getUser(address _user) external view returns (User memory) {
         return userInfo[_user];
+    }
+
+    function getUsers() external view returns (address[] memory) {
+        return users;
+    }
+
+    function getUsersCount() external view returns (uint256) {
+        return users.length;
     }
 }
