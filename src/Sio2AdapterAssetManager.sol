@@ -19,9 +19,13 @@ contract Sio2AdapterAssetManager is Initializable, OwnableUpgradeable, Reentranc
     uint256 private constant COLLATERAL_REWARDS_WEIGHT = 5; // 5% of all sio2 collateral rewards go to the nASTR pool
 
     string[] public assets;
-    mapping(string => Asset) public assetInfo;
-    address[] public assetsAddresses;
     address[] public bTokens;
+
+    mapping(string => Asset) public assetInfo;
+    mapping(address => bool) public bTokenExist;
+    mapping(string => bool) public assetNameExist;
+
+    address[] public assetsAddresses;
 
     struct Asset {
         uint256 id;
@@ -67,6 +71,8 @@ contract Sio2AdapterAssetManager is Initializable, OwnableUpgradeable, Reentranc
     ) external onlyOwner {
         require(assetInfo[_assetName].addr == address(0), "Asset already added");
         require(_assetAddress != address(0), "Zero address alarm!");
+        require(!bTokenExist[_bToken], "Such bToken address already added");
+        require(!assetNameExist[_assetName], "Such asset name already added");
 
         // get liquidationThreshold for asset from sio2
         DataTypes.ReserveConfigurationMap memory data = pool.getConfiguration(_assetAddress);
@@ -89,6 +95,9 @@ contract Sio2AdapterAssetManager is Initializable, OwnableUpgradeable, Reentranc
         assetsAddresses.push(asset.addr);
         assetInfo[_assetName] = asset;
         bTokens.push(_bToken);
+
+        bTokenExist[_bToken] = true;
+        assetNameExist[_assetName] = true;
 
         emit AddAsset(msg.sender, _assetName, _assetAddress);
     }
@@ -116,6 +125,9 @@ contract Sio2AdapterAssetManager is Initializable, OwnableUpgradeable, Reentranc
         address lastBAddr = bTokens[bTokens.length - 1];
         bTokens[asset.id] = lastBAddr;
         bTokens.pop();
+
+        bTokenExist[asset.bTokenAddress] = false;
+        assetNameExist[asset.name] = false;
 
         // update id of last asset and remove deleted struct
         assetInfo[lastAsset].id = asset.id;
