@@ -208,9 +208,6 @@ contract Sio2Adapter is Initializable, OwnableUpgradeable, ReentrancyGuardUpgrad
         // send collateral to user or liquidator
         nastr.safeTransfer(msg.sender, withdrawnAmount);
 
-        // remove user if his collateral becomes equal to zero
-        if (userInfo[_user].collateralAmount == 0) _removeUser();
-
         emit Withdraw(msg.sender, _amount);
     }
 
@@ -419,6 +416,9 @@ contract Sio2Adapter is Initializable, OwnableUpgradeable, ReentrancyGuardUpgrad
         user.rewards = 0;
         rewardPool -= rewardsToClaim;
         rewardToken.safeTransfer(msg.sender, rewardsToClaim);
+
+        // remove user if his collateral becomes equal to zero
+        if (user.collateralAmount == 0) _removeUser();
 
         emit ClaimRewards(msg.sender, rewardsToClaim);
     }
