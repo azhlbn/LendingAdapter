@@ -488,7 +488,8 @@ contract Sio2Adapter is Initializable, OwnableUpgradeable, ReentrancyGuardUpgrad
         // receiving rewards from incentives controller
         // this rewards consists of collateral and debt rewards
         address[] memory rewardableTokens = new address[](bTokens.length + 1);
-        rewardableTokens[bTokens.length + 1] = address(snastrToken);
+        for (uint256 i; i < bTokens.length; i++) rewardableTokens[i] = bTokens[i];
+        rewardableTokens[bTokens.length] = address(snastrToken);
         uint256 receivedRewards = incentivesController.claimRewards(
             rewardableTokens,
             _pendingRewards,
