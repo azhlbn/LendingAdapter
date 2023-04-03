@@ -95,7 +95,7 @@ contract Sio2Adapter is Initializable, OwnableUpgradeable, ReentrancyGuardUpgrad
         Sio2AdapterAssetManager _assetManager,
         ISio2PriceOracle _priceOracle // ISio2PriceOracle(0x5f7c3639A854a27DFf64B320De5C9CAF9C4Bd323);
 
-    ) public initializer {
+    ) external initializer {
         __Ownable_init();
         __ReentrancyGuard_init();
         
@@ -192,6 +192,9 @@ contract Sio2Adapter is Initializable, OwnableUpgradeable, ReentrancyGuardUpgrad
 
         // send collateral to user or liquidator
         nastr.safeTransfer(msg.sender, withdrawnAmount);
+
+        // remove user if his collateral and rewards becomes equal to zero
+        if (user.collateralAmount == 0 && user.rewards == 0) _removeUser();
 
         emit Withdraw(msg.sender, _amount);
     }
@@ -300,7 +303,7 @@ contract Sio2Adapter is Initializable, OwnableUpgradeable, ReentrancyGuardUpgrad
         ( , , address debtAssetAddr, , , , , , , ) = assetManager.assetInfo(_debtAsset);
 
         // check user HF, debtUSD and update state
-        (uint256 hf, uint256 userTotalDebtInUSD) = getUpdatedInfo(_user);
+        (uint256 hf, uint256 userTotalDebtInUSD) = getLiquidationParameters(_user);
         require(hf < 1e18, "User has healthy enough position");
         
         // get user's debt in a specific asset
@@ -329,7 +332,7 @@ contract Sio2Adapter is Initializable, OwnableUpgradeable, ReentrancyGuardUpgrad
     // @dev HF = sum(collateral_i * liqThreshold_i) / totalBorrowsInUSD
     // @notice to get HF for check healthy of user position
     // @param _user User address
-    function getUpdatedInfo(address _user) public update(_user) returns (uint256 hf, uint256 debtUSD) {
+    function getLiquidationParameters(address _user) public update(_user) returns (uint256 hf, uint256 debtUSD) {
         debtUSD = calcEstimateUserDebtUSD(_user);
         require(debtUSD > 0, "User has no debts");
         uint256 collateralUSD = toUSD(address(nastr), userInfo[_user].collateralAmount);
@@ -402,7 +405,7 @@ contract Sio2Adapter is Initializable, OwnableUpgradeable, ReentrancyGuardUpgrad
         rewardPool -= rewardsToClaim;
         rewardToken.safeTransfer(msg.sender, rewardsToClaim);
 
-        // remove user if his collateral becomes equal to zero
+        // remove user if his collateral and rewards becomes equal to zero
         if (user.collateralAmount == 0) _removeUser();
 
         emit ClaimRewards(msg.sender, rewardsToClaim);
@@ -487,11 +490,8 @@ contract Sio2Adapter is Initializable, OwnableUpgradeable, ReentrancyGuardUpgrad
         string[] memory assets = assetManager.getAssetsNames();
         // receiving rewards from incentives controller
         // this rewards consists of collateral and debt rewards
-        address[] memory rewardableTokens = new address[](bTokens.length + 1);
-        for (uint256 i; i < bTokens.length; i++) rewardableTokens[i] = bTokens[i];
-        rewardableTokens[bTokens.length] = address(snastrToken);
         uint256 receivedRewards = incentivesController.claimRewards(
-            rewardableTokens,
+            bTokens,
             _pendingRewards,
             address(this)
         );
@@ -782,10 +782,12 @@ contract Sio2Adapter is Initializable, OwnableUpgradeable, ReentrancyGuardUpgrad
         return userInfo[_user];
     }
 
+    // @notice Get users list
     function getUsers() external view returns (address[] memory) {
         return users;
     }
 
+    // @notice Get length of users array
     function getUsersCount() external view returns (uint256) {
         return users.length;
     }

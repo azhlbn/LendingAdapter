@@ -47,11 +47,16 @@ contract Sio2AdapterAssetManager is Initializable, OwnableUpgradeable, Reentranc
     }
 
     function initialize(
-        ISio2LendingPool _pool
-    ) public initializer {
+        ISio2LendingPool _pool,
+        address _snastr
+    ) external initializer {
         __Ownable_init();
         __ReentrancyGuard_init();
 
+        require(address(_pool) != address(0), "Lending pool address cannot be zero");
+        require(_snastr != address(0), "snASTR address cannot be zero");
+
+        bTokens.push(_snastr);
         pool = _pool;
     }
 
@@ -167,5 +172,51 @@ contract Sio2AdapterAssetManager is Initializable, OwnableUpgradeable, Reentranc
 
     function getRewardsWeight(string memory assetName) external view returns (uint256) {
         return assetInfo[assetName].rewardsWeight;
+    }
+
+    // ADDED AFTER AUDIT BELOW 👇🏻
+
+    // @notice Get available tokens to borrow for user and asset
+    // @param _user User address
+    // @param _assetName Asset name
+    // @return amount Number of tokens to borrow
+    function getAvailableTokensToBorrow(
+        address _user
+    ) external view returns (uint256[] memory) {
+        (uint256 availableColForBorrowUSD,) = adapter.availableCollateralUSD(_user);
+
+        uint256 assetsAmount = assets.length;
+
+        string[] memory assetNames = new string[](assetsAmount);
+        uint256[] memory amounts = new uint256[](assetsAmount);
+
+        assetNames = assets;
+
+        for (uint256 i; i < assetsAmount; i++) {
+            address assetAddr = assetInfo[assetNames[i]].addr;
+            amounts[i] = adapter.fromUSD(assetAddr, availableColForBorrowUSD);
+        }        
+        
+        return amounts;
+    }
+    
+    // @notice Get arrays of asset names and its amounts for ui
+    // @param _user User address
+    function getAvailableTokensToRepay(
+        address _user
+    ) external view returns (
+        string[] memory, 
+        uint256[] memory
+    ) {
+        Sio2Adapter.User memory user = adapter.getUser(_user);
+        string[] memory assetsNames = new string[](user.borrowedAssets.length);
+        uint256[] memory debtAmounts = new uint256[](user.borrowedAssets.length);
+        assetsNames = user.borrowedAssets;
+
+        for (uint256 i; i < assetsNames.length; i++) {
+            debtAmounts[i] = adapter.debts(_user, assetsNames[i]);
+        }
+
+        return (assetsNames, debtAmounts);
     }
 }
