@@ -174,8 +174,6 @@ contract Sio2AdapterAssetManager is Initializable, OwnableUpgradeable, Reentranc
         return assetInfo[assetName].rewardsWeight;
     }
 
-    // ADDED AFTER AUDIT BELOW 👇🏻
-
     // @notice Get available tokens to borrow for user and asset
     // @param _user User address
     // @param _assetName Asset name
