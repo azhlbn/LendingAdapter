@@ -505,7 +505,9 @@ contract Sio2Adapter is Initializable, OwnableUpgradeable, ReentrancyGuardUpgrad
 
         // get total asset shares in pool to further calculate rewards for each asset
         uint256 sumOfAssetShares = snastrToken.balanceOf(address(this)) * COLLATERAL_REWARDS_WEIGHT * SHARES_PRECISION / snastrToken.totalSupply();
-        for (uint256 i; i < assets.length; i++ ) {
+
+        // indexes start at 1 to skip "null" asset
+        for (uint256 i = 1; i < assets.length; i++ ) {
             (
                 , , ,
                 address assetBTokenAddress,
@@ -523,7 +525,7 @@ contract Sio2Adapter is Initializable, OwnableUpgradeable, ReentrancyGuardUpgrad
 
         // set accumulated rewards per share for each borrowed asset
         // needed for sio2 rewards distribution
-        for (uint256 i; i < assets.length;) {
+        for (uint256 i = 1; i < assets.length;) {
             (
                 , , ,
                 address assetBTokenAddress,
@@ -568,7 +570,8 @@ contract Sio2Adapter is Initializable, OwnableUpgradeable, ReentrancyGuardUpgrad
         }
 
         // update bToken debts
-        for (uint256 i; i < assets.length; ) {
+        // indexes start at 1 to skip "null" asset
+        for (uint256 i = 1; i < assets.length; ) {
             (
                 , , ,
                 address assetBTokenAddress,
