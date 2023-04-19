@@ -57,7 +57,6 @@ contract Sio2AdapterAssetManager is Initializable, OwnableUpgradeable, Reentranc
         require(_snastr != address(0), "snASTR address cannot be zero");
 
         bTokens.push(_snastr);
-        assets.push("null"); // added null asset to properly sync arrays indexes bTokens & assets
 
         pool = _pool;
     }
@@ -122,7 +121,7 @@ contract Sio2AdapterAssetManager is Initializable, OwnableUpgradeable, Reentranc
 
         // remove addr from bTokens
         address lastBAddr = bTokens[bTokens.length - 1];
-        bTokens[asset.id] = lastBAddr;
+        bTokens[asset.id + 1] = lastBAddr;
         bTokens.pop();
 
         bTokenExist[asset.bTokenAddress] = false;
