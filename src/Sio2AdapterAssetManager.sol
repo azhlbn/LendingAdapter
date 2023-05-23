@@ -4,6 +4,7 @@ pragma solidity 0.8.4;
 import "@openzeppelin-upgradeable/contracts/utils/AddressUpgradeable.sol";
 import "@openzeppelin-upgradeable/contracts/access/OwnableUpgradeable.sol";
 import "@openzeppelin-upgradeable/contracts/token/ERC20/utils/SafeERC20Upgradeable.sol";
+import "@openzeppelin-upgradeable/contracts/token/ERC20/ERC20Upgradeable.sol";
 import "@openzeppelin-upgradeable/contracts/security/ReentrancyGuardUpgradeable.sol";
 import "./interfaces/ISio2LendingPool.sol";
 import "./Sio2Adapter.sol";
@@ -41,10 +42,10 @@ contract Sio2AdapterAssetManager is Initializable, OwnableUpgradeable, Reentranc
     event RemoveAsset(address owner, string indexed assetName);
     event SetAdapter(address who, address adapterAddress);
 
-    /// @custom:oz-upgrades-unsafe-allow constructor
-    constructor() {
-        _disableInitializers();
-    }
+    // /// @custom:oz-upgrades-unsafe-allow constructor
+    // constructor() {
+    //     _disableInitializers();
+    // }
 
     function initialize(
         ISio2LendingPool _pool,
@@ -68,13 +69,14 @@ contract Sio2AdapterAssetManager is Initializable, OwnableUpgradeable, Reentranc
 
     // @notice Allows owner to add new asset
     function addAsset(
-        string memory _assetName,
         address _assetAddress,
         address _bToken,
         uint256 _rewardsWeight
     ) external onlyOwner {
+        string memory _assetName = ERC20Upgradeable(_assetAddress).symbol();
+        
         require(assetInfo[_assetName].addr == address(0), "Asset already added");
-        require(_assetAddress != address(0), "Zero address alarm!");
+        require(keccak256(abi.encodePacked(_assetName)) != keccak256(""), "Empty asset name");
         require(!bTokenExist[_bToken], "Such bToken address already added");
         require(!assetNameExist[_assetName], "Such asset name already added");
 
@@ -82,13 +84,15 @@ contract Sio2AdapterAssetManager is Initializable, OwnableUpgradeable, Reentranc
         DataTypes.ReserveConfigurationMap memory data = pool.getConfiguration(_assetAddress);
         uint256 lt = data.getLiquidationThreshold();
 
+        uint256 nativeBTokenBal = IERC20Upgradeable(_bToken).balanceOf(address(this));
+
         Asset memory asset = Asset({
             id: assets.length,
             name: _assetName,
             addr: _assetAddress,
             bTokenAddress: _bToken,
             liquidationThreshold: lt,
-            lastBTokenBalance: IERC20Upgradeable(_bToken).balanceOf(address(this)),
+            lastBTokenBalance: _to18DecFormat(_assetAddress, nativeBTokenBal),
             accBTokensPerShare: 0,
             totalBorrowed: 0,
             rewardsWeight: _rewardsWeight,
@@ -154,7 +158,8 @@ contract Sio2AdapterAssetManager is Initializable, OwnableUpgradeable, Reentranc
 
     function updateLastBTokenBalance(string memory _assetName) external onlyAdapter {
         Asset storage asset = assetInfo[_assetName];
-        asset.lastBTokenBalance = IERC20Upgradeable(asset.bTokenAddress).balanceOf(address(adapter));
+        uint256 nativeBal = IERC20Upgradeable(asset.bTokenAddress).balanceOf(address(adapter));
+        asset.lastBTokenBalance = _to18DecFormat(asset.addr, nativeBal);
     }
 
     function setAdapter(Sio2Adapter _adapter) external onlyOwner {
@@ -218,4 +223,14 @@ contract Sio2AdapterAssetManager is Initializable, OwnableUpgradeable, Reentranc
 
         return (assetsNames, debtAmounts);
     }
+
+    // @notice If token decimals is different from 18, 
+    //         add the missing number of zeros for correct calculations
+    function _to18DecFormat(address _tokenAddress, uint256 _amount) private view returns (uint256) {
+        if (ERC20Upgradeable(_tokenAddress).decimals() < 18) {
+            return _amount * 10 ** (18 - ERC20Upgradeable(_tokenAddress).decimals());
+        }
+        return _amount;
+    }
+
 }

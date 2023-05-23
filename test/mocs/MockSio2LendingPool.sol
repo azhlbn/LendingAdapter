@@ -14,6 +14,8 @@ contract MockSio2LendingPool {
     DataTypes.ReserveConfigurationMap public busdConfigMap;
     MockERC20 public busd;
     MockVDToken public vdbusd;
+    MockERC20 public dai;
+    MockVDToken public vddai;
 
     mapping(address => MockERC20) public assets;
     mapping(address => MockVDToken) public debtAssets;
@@ -27,7 +29,13 @@ contract MockSio2LendingPool {
         MockERC20 _busd,
         MockERC20 _dot,
         MockVDToken _vdbusd,
-        MockVDToken _vddot
+        MockVDToken _vddot,
+        MockERC20 _dai,
+        MockVDToken _vddai,
+        MockERC20 _usdc,
+        MockVDToken _vdusdc,
+        MockERC20 _usdt,
+        MockVDToken _vdusdt
     ) {
         snastr = _snastr;
         busdConfigMap.data = 27671057969860373126976;
@@ -36,6 +44,12 @@ contract MockSio2LendingPool {
         assets[address(_dot)] = _dot;
         debtAssets[address(_busd)] = _vdbusd;
         debtAssets[address(_dot)] = _vddot;
+        assets[address(_dai)] = _dai;
+        debtAssets[address(_dai)] = _vddai;
+        assets[address(_usdc)] = _usdc;
+        debtAssets[address(_usdc)] = _vdusdc;
+        assets[address(_usdt)] = _usdt;
+        debtAssets[address(_usdt)] = _vdusdt;
     }
 
     function deposit(

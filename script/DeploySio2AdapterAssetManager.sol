@@ -14,6 +14,8 @@ contract DeploySio2AdapterAssetManager is Script {
     // MyContractV2 wrappedProxyV2;
     ProxyAdmin admin;
 
+    address public snASTR = address(0); // 👈 need to set
+
     function run() public {
         uint256 deployerPrivateKey = vm.envUint("PRIVATE_KEY");
         vm.startBroadcast(deployerPrivateKey);
@@ -28,7 +30,8 @@ contract DeploySio2AdapterAssetManager is Script {
         // wrap in ABI to support easier calls
         wrappedProxyV1 = Sio2AdapterAssetManager(address(proxy));
         wrappedProxyV1.initialize(
-            ISio2LendingPool(0x4df48B292C026f0340B60C582f58aa41E09fF0de)
+            ISio2LendingPool(0x4df48B292C026f0340B60C582f58aa41E09fF0de),
+            snASTR
         );
 
         console.log("proxy address:", address(proxy));

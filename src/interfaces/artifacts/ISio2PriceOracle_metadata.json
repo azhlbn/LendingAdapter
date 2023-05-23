@@ -1,0 +1,83 @@
+{
+	"compiler": {
+		"version": "0.8.4+commit.c7e474f2"
+	},
+	"language": "Solidity",
+	"output": {
+		"abi": [
+			{
+				"inputs": [
+					{
+						"internalType": "address",
+						"name": "asset",
+						"type": "address"
+					}
+				],
+				"name": "getAssetPrice",
+				"outputs": [
+					{
+						"internalType": "uint256",
+						"name": "",
+						"type": "uint256"
+					}
+				],
+				"stateMutability": "view",
+				"type": "function"
+			},
+			{
+				"inputs": [
+					{
+						"internalType": "address",
+						"name": "asset",
+						"type": "address"
+					},
+					{
+						"internalType": "uint256",
+						"name": "price",
+						"type": "uint256"
+					}
+				],
+				"name": "setAssetPrice",
+				"outputs": [],
+				"stateMutability": "nonpayable",
+				"type": "function"
+			}
+		],
+		"devdoc": {
+			"kind": "dev",
+			"methods": {},
+			"version": 1
+		},
+		"userdoc": {
+			"kind": "user",
+			"methods": {},
+			"version": 1
+		}
+	},
+	"settings": {
+		"compilationTarget": {
+			"src/interfaces/ISio2PriceOracle.sol": "ISio2PriceOracle"
+		},
+		"evmVersion": "istanbul",
+		"libraries": {},
+		"metadata": {
+			"bytecodeHash": "ipfs"
+		},
+		"optimizer": {
+			"enabled": false,
+			"runs": 200
+		},
+		"remappings": []
+	},
+	"sources": {
+		"src/interfaces/ISio2PriceOracle.sol": {
+			"keccak256": "0x2434874a2261302680b9c1eb0c582fb25b4abdc1d9b7fc1e69a834b231e76e95",
+			"license": "MIT",
+			"urls": [
+				"bzz-raw://f66d74c73e594804dcd5d2ff23d8e594d870c5471bf577a139786e138b3f6e83",
+				"dweb:/ipfs/QmbR2FsNdFyEmb7yHjKgeEiRhus5GZp9pgzhpvhr5PC3SR"
+			]
+		}
+	},
+	"version": 1
+}

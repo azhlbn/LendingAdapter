@@ -4,3 +4,13 @@ out = 'out'
 libs = ['lib']
 
 # See more config options https://github.com/foundry-rs/foundry/tree/master/config
+
+[rpc_endpoints]
+goerli = "${GOERLI_RPC_URL}"
+astar = "${ASTAR_RPC_URL}"
+bsc = "${BSC_RPC_URL}"
+sepolia = "${SEPOLIA_RPC_URL}"
+localhost = "${LOCALHOST}"
+
+[etherscan]
+goerli = { key = "${ETHERSCAN_API_KEY}" }

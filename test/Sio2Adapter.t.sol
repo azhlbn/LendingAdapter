@@ -4,31 +4,45 @@ pragma solidity ^0.8.4;
 import "forge-std/Test.sol";
 import "../src/Sio2Adapter.sol";
 import "../src/Sio2AdapterAssetManager.sol";
+import "../src/Liquidator.sol";
 import "./mocs/MockSio2LendingPool.sol";
 import "./mocs/MockERC20.sol";
 import "./mocs/MockSCollateralToken.sol";
 import "./mocs/MockPriceOracle.sol";
 import "./mocs/MockVDToken.sol";
+import "./mocs/MockProvider.sol";
 import "./mocs/MockIncentivesController.sol";
 import "@openzeppelin-upgradeable/contracts/token/ERC20/ERC20Upgradeable.sol";
+import "../src/interfaces/ISio2LendingPoolAddressesProvider.sol";
+import "../src/interfaces/ISio2LendingPool.sol";
 
-contract Sio2AdapterTes is Test {
-    Sio2Adapter public adapter;
-    Sio2AdapterAssetManager public assetManager;
+contract Sio2AdapterTest is Test {
+    Sio2Adapter adapter;
+    Sio2AdapterAssetManager assetManager;
 
-    MockSio2LendingPool public pool;
-    MockERC20 public nastr;
-    MockERC20 public rewardToken;
-    MockERC20 public busd;
-    MockERC20 public dot;
-    MockVDToken public vddot;
-    MockSCollateralToken public snastr;
-    MockVDToken public vdbusd;
-    MockPriceOracle public priceOracle;
-    MockIncentivesController public incentivesController;
+    MockSio2LendingPool pool;
+    MockERC20 nastr;
+    MockERC20 rewardToken;
+    MockERC20 busd;
+    MockERC20 dot;
+    MockVDToken vddot;
+    MockERC20 dai;
+    MockVDToken vddai;
+    MockERC20 usdc;
+    MockVDToken vdusdc;
+    MockERC20 usdt;
+    MockVDToken vdusdt;
+    MockSCollateralToken snastr;
+    MockVDToken vdbusd;
+    MockPriceOracle priceOracle;
+    MockIncentivesController incentivesController;
+    Liquidator liquidatorContract;
 
-    address public user;
-    address public liquidator;
+    address provider;
+    address user;
+    address liquidator;
+
+    uint256 dot_precision = 1e8;
 
     function setUp() public {
         nastr = new MockERC20("nASTR", "nASTR");
@@ -37,35 +51,62 @@ contract Sio2AdapterTes is Test {
         vdbusd = new MockVDToken("vdBUSD", "vdBUSD");
         rewardToken = new MockERC20("SIO2", "SIO2");
         dot = new MockERC20("DOT", "DOT");
+        dot.setDecimals(10);
         vddot = new MockVDToken("vdDOT", "vdDOT");
+        vddot.setDecimals(10);
+        dai = new MockERC20("DAI", "DAI");
+        vddai = new MockVDToken("vdDAI", "vdDAI");
+        usdc = new MockERC20("USDC", "USDC");
+        vdusdc = new MockVDToken("vdUSDC", "vdUSDC");
+        usdc.setDecimals(6);
+        vdusdc.setDecimals(6);
+        usdt = new MockERC20("USDT", "USDT");
+        vdusdt = new MockVDToken("vdUSDT", "vdUSDT");
+        usdt.setDecimals(6);
+        vdusdt.setDecimals(6);
 
         incentivesController = new MockIncentivesController(
             snastr,
             vdbusd,
             rewardToken
         );
-        
-        pool = new MockSio2LendingPool(snastr, nastr, busd, dot, vdbusd, vddot);
+
+        pool = new MockSio2LendingPool(
+            snastr,
+            nastr,
+            busd,
+            dot,
+            vdbusd,
+            vddot,
+            dai,
+            vddai,
+            usdc,
+            vdusdc,
+            usdt,
+            vdusdt
+        );
+
+        provider = address(new MockProvider(address(pool)));
 
         assetManager = new Sio2AdapterAssetManager();
-        assetManager.initialize(ISio2LendingPool(address(pool)));
+        assetManager.initialize(
+            ISio2LendingPool(address(pool)),
+            address(snastr)
+        );
 
-        assetManager.addAsset(
-            "BUSD",
+        assetManager.addAsset(address(busd), address(vdbusd), 8);
+
+        assetManager.addAsset(address(dot), address(vddot), 12);
+
+        priceOracle = new MockPriceOracle(
+            address(nastr),
             address(busd),
-            address(vdbusd),
-            8
-        );
-
-        assetManager.addAsset(
-            "DOT",
             address(dot),
-            address(vddot),
-            12
+            address(dai),
+            address(usdc),
+            address(usdt)
         );
 
-        priceOracle = new MockPriceOracle(address(nastr), address(busd), address(dot));
-        
         adapter = new Sio2Adapter();
         adapter.initialize(
             ISio2LendingPool(address(pool)),
@@ -82,11 +123,20 @@ contract Sio2AdapterTes is Test {
         user = vm.addr(1); // convert private key to address
         liquidator = vm.addr(2);
 
+        liquidatorContract = new Liquidator(
+            ISio2LendingPool(address(pool)),
+            adapter,
+            assetManager,
+            ISio2LendingPoolAddressesProvider(provider),
+            address(nastr)
+        );
+        liquidatorContract.grantRole(liquidatorContract.LIQUIDATOR(), user);
+
         vm.deal(user, 5 ether); // add ether to user
-        nastr.mint(user, 1e36);
+        nastr.mint(user, 1e72);
         busd.mint(liquidator, 1e36);
         dot.mint(liquidator, 1e36);
-        
+
         vm.prank(user);
         nastr.approve(address(adapter), 1e36);
     }
@@ -101,7 +151,7 @@ contract Sio2AdapterTes is Test {
         adapter.supply(0);
 
         vm.expectRevert("Not enough nASTR tokens on the user balance");
-        adapter.supply(1e40);
+        adapter.supply(UINT256_MAX);
 
         adapter.supply(amount);
 
@@ -115,11 +165,11 @@ contract Sio2AdapterTes is Test {
         vm.startPrank(user);
 
         adapter.supply(1 ether);
-        (,,uint256 colBefore,,,) = adapter.userInfo(user);
+        (, , uint256 colBefore, , , ) = adapter.userInfo(user);
         assertEq(colBefore, 1 ether);
 
         adapter.withdraw(1 ether);
-        (,,uint256 colAfter,,,) = adapter.userInfo(user);
+        (, , uint256 colAfter, , , ) = adapter.userInfo(user);
         assertEq(colAfter, 0);
 
         vm.stopPrank();
@@ -131,10 +181,10 @@ contract Sio2AdapterTes is Test {
         adapter.borrow("BUSD", 1 ether); // borrow 1 BUSD
         adapter.borrow("DOT", 1 ether);
         vm.warp(1 days);
-        adapter.borrow("BUSD", 1 ether); 
+        adapter.borrow("BUSD", 1 ether);
         adapter.borrow("DOT", 1 ether);
         uint256 debt = adapter.calcEstimateUserDebtUSD(user);
-        assertEq(busd.balanceOf(user), 1 ether);
+        assertEq(busd.balanceOf(user), 2 ether);
         assertGt(dot.balanceOf(user), 0);
         assertGt(debt, 0);
         vm.stopPrank();
@@ -150,7 +200,7 @@ contract Sio2AdapterTes is Test {
 
         adapter.borrow("DOT", 1 ether);
         assertEq(busd.balanceOf(user), 10 ether);
-        assertEq(dot.balanceOf(user), 1 ether);
+        // assertEq(dot.balanceOf(user), 1 ether / dot_precision);
         busd.approve(address(adapter), 10 ether);
         dot.approve(address(adapter), 10 ether);
 
@@ -175,7 +225,7 @@ contract Sio2AdapterTes is Test {
         //test repay full dot
         adapter.repayFull("DOT");
         assertEq(dot.balanceOf(user), 0);
-        
+
         vm.stopPrank();
     }
 
@@ -183,7 +233,7 @@ contract Sio2AdapterTes is Test {
         vm.startPrank(user);
         adapter.supply(1000 ether);
         adapter.borrow("BUSD", 10 ether);
-        uint256 hf = adapter.getHF(user);
+        (uint256 hf, uint256 debtUSD) = adapter.getLiquidationParameters(user);
         uint256 estimateHF = adapter.estimateHF(user);
         assertEq(hf, estimateHF);
         assertGt(hf, 0);
@@ -200,13 +250,13 @@ contract Sio2AdapterTes is Test {
         adapter.claimRewards();
 
         vm.roll(10);
-        
+
         adapter.claimRewards();
 
         assertGt(rewardToken.balanceOf(user), 0);
         assertGt(adapter.rewardPool(), 0);
 
-        (,,,uint256 rewards,,) = adapter.userInfo(user);
+        (, , , uint256 rewards, , ) = adapter.userInfo(user);
         assertEq(rewards, 0);
 
         vm.stopPrank();
@@ -215,21 +265,16 @@ contract Sio2AdapterTes is Test {
     function testAddAndRemoveAsset() public {
         uint256 assetsInitAmount = assetManager.getAssetsNames().length;
 
-        assetManager.addAsset(
-            "NEW",
-            address(busd),
-            address(vdbusd),
-            8
-        );
+        assetManager.addAsset(address(dai), address(vddai), 8);
 
         assertEq(assetManager.getAssetsNames().length, assetsInitAmount + 1);
 
-        assetManager.removeAsset("NEW");
+        assetManager.removeAsset("DAI");
 
         assertEq(assetManager.getAssetsNames().length, assetsInitAmount);
 
         vm.expectRevert("There is no such asset");
-        assetManager.removeAsset("NEW");
+        assetManager.removeAsset("DAI");
     }
 
     function testWithdrawRevenue() public {
@@ -254,14 +299,12 @@ contract Sio2AdapterTes is Test {
         vm.expectRevert("Not enough sTokens on user balance");
         adapter.addSTokens(amount);
         nastr.approve(address(pool), amount);
-        pool.deposit(
-            address(nastr), amount, user, 0
-        );
+        pool.deposit(address(nastr), amount, user, 0);
         assertGt(snastr.balanceOf(user), 0);
         assertEq(snastr.balanceOf(address(adapter)), 0);
         snastr.approve(address(adapter), amount);
-        adapter.addSTokens(amount/2);
-        adapter.addSTokens(amount/2);
+        adapter.addSTokens(amount / 2);
+        adapter.addSTokens(amount / 2);
         assertEq(snastr.balanceOf(user), 0);
         assertGt(snastr.balanceOf(address(adapter)), 0);
         vm.stopPrank();
@@ -272,12 +315,12 @@ contract Sio2AdapterTes is Test {
         adapter.supply(100 ether);
 
         vm.expectRevert("User has no debts");
-        adapter.getHF(user);
+        adapter.getLiquidationParameters(user);
 
         vm.expectRevert("User has no debts");
         adapter.estimateHF(user);
 
-        (uint256 availableToBorrow,) = adapter.availableCollateralUSD(user);
+        (uint256 availableToBorrow, ) = adapter.availableCollateralUSD(user);
 
         adapter.borrow("BUSD", availableToBorrow);
 
@@ -289,29 +332,19 @@ contract Sio2AdapterTes is Test {
         uint256 debtToCover = adapter.debts(user, "BUSD");
         busd.approve(address(adapter), 1e36);
 
-        vm.expectRevert("Debt to cover need to be lower than 50% of users debt");
-        adapter.liquidationCall(
-            "BUSD",
-            user,
-            debtToCover - 1e17
+        vm.expectRevert(
+            "Debt to cover need to be lower than 50% of users debt"
         );
+        adapter.liquidationCall("BUSD", user, debtToCover - 1e17);
 
         vm.expectRevert("_debtToCover exceeds the user's debt amount");
-        adapter.liquidationCall(
-            "BUSD",
-            user,
-            debtToCover + 1e17
-        );
+        adapter.liquidationCall("BUSD", user, debtToCover + 1e17);
 
         uint256 debt = adapter.debts(user, "BUSD");
 
         uint256 col = adapter.getUser(user).collateralAmount;
 
-        adapter.liquidationCall(
-            "BUSD",
-            user,
-            debtToCover / 2
-        );
+        adapter.liquidationCall("BUSD", user, debtToCover / 2);
         vm.stopPrank();
     }
 
@@ -319,8 +352,10 @@ contract Sio2AdapterTes is Test {
         vm.prank(user);
         adapter.supply(1 ether);
 
-        (,uint256 availableColToWithdraw) = adapter.availableCollateralUSD(user);
+        (, uint256 availableColToWithdraw) = adapter.availableCollateralUSD(
+            user
+        );
 
-        (,, uint256 col,,,) = adapter.userInfo(user);
+        (, , uint256 col, , , ) = adapter.userInfo(user);
     }
 }

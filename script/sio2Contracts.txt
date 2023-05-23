@@ -1,0 +1,7 @@
+// == Logs ==
+//   adapter proxy address: 0xAB06472A169e9eA3147A722464631D10553E384D
+//   assetManager proxy address: 0x57c9f22168f315D33E1270b617F32F7940B89D67
+
+//   ProxyAdmin@0x4700c6795f8Acb98F397C13812D508780428C476 /verified
+//   TransparentUpgradeableProxy@0x57c9f22168f315D33E1270b617F32F7940B89D67 / verified
+//   TransparentUpgradeableProxy@0xAB06472A169e9eA3147A722464631D10553E384D / verified
