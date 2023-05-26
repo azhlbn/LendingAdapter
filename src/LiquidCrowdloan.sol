@@ -118,6 +118,7 @@ contract LiquidCrowdloan is
         uint256 amount
     );
     event ClaimDappsStakingRewards(uint256 indexed era, uint256 amount);
+    event BecomeReferrer(address indexed user, string indexed refCode);
 
     // /// @custom:oz-upgrades-unsafe-allow constructor
     // constructor() {
@@ -144,7 +145,7 @@ contract LiquidCrowdloan is
             beneficiary: address(this),
             cliff: 7 days,
             startTime: block.timestamp,
-            duration: 6 * 30 days,
+            duration: 6 * ONE_MONTH,
             slicePeriod: 7 days,
             revocable: true,
             amount: ALGM_REWARDS_AMOUNT
@@ -415,6 +416,8 @@ contract LiquidCrowdloan is
         isActiveRef[ref] = true;
         refToOwner[ref] = user;
         ownerToRef[msg.sender] = ref;
+
+        emit BecomeReferrer(msg.sender, ref);
     }
 
     // @notice Get total available rewards for Crowdloan contract
