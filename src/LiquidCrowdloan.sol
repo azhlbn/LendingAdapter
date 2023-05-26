@@ -440,11 +440,6 @@ contract LiquidCrowdloan is
                 vestingParams.slicePeriod) / vestingParams.duration;
     }
 
-    function _getVestingId() private view returns (bytes32) {
-        uint256 lastVestingId = vesting.holdersVestingCount(address(this)) - 1;
-        return vesting.computeVestingIdForAddressAndIndex(address(this), lastVestingId);
-    }
-
     // @notice Get the number of passed slices since the vesting period started
     // @return Number of slices
     function slicesPassed() public view returns (uint256) {
@@ -460,10 +455,6 @@ contract LiquidCrowdloan is
         return passed;
     }
 
-    function _userShare(address _user) private view returns (uint256) {
-        return (stakes[_user] * SHARE_PRECISION) / totalStaked;
-    }
-
     // @notice Get stakers array
     // @return Address array
     function getStakers() public view returns (address[] memory) {
@@ -474,6 +465,19 @@ contract LiquidCrowdloan is
     // @return Current era number
     function currentEra() public view returns (uint256) {
         return dappsStaking.read_current_era();
+    }
+
+    function userTotalRewards(address _user) external view returns (uint256) {
+        return (ALGM_REWARDS_AMOUNT / totalStaked) * stakes[_user];
+    }
+
+    function _getVestingId() private view returns (bytes32) {
+        uint256 lastVestingId = vesting.holdersVestingCount(address(this)) - 1;
+        return vesting.computeVestingIdForAddressAndIndex(address(this), lastVestingId);
+    }
+
+    function _userShare(address _user) private view returns (uint256) {
+        return (stakes[_user] * SHARE_PRECISION) / totalStaked;
     }
 
     ////////////////////////////////////////////////////////////////////////////
