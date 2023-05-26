@@ -404,14 +404,14 @@ contract LiquidCrowdloan is
         emit SetClaimingTxLimit(msg.sender, _val);
     }
 
-    // @notice To become a referral
-    function becomeReferral() public returns (string memory ref) {
+    // @notice To become a referrer
+    function becomeReferrer() public returns (string memory ref) {
         address user = msg.sender;
         require(keccak256(abi.encodePacked(ownerToRef[user])) != keccak256(""), "User is already a referrer");
 
         bytes3 data = bytes3(keccak256(abi.encode(user, block.timestamp)));
         string memory ref = data.toString();
-        
+
         isActiveRef[ref] = true;
         refToOwner[ref] = user;
         ownerToRef[msg.sender] = ref;
