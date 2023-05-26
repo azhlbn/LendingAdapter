@@ -66,6 +66,7 @@ contract LiquidCrowdloan is
     mapping(string => bool) public isActiveRef;
     mapping(string => address) public refToOwner;
     mapping(address => string) public addrToUsedRef;
+    mapping(address => string) public ownerToRef;
 
     struct VestingParams {
         address beneficiary;
@@ -404,12 +405,16 @@ contract LiquidCrowdloan is
     }
 
     // @notice To become a referral
-    // @param _user User address
-    function becomeReferral(address _user) public returns (string memory ref) {
-        ref = _getRef(_user);
-        require(!isActiveRef[ref], "User already referral");
+    function becomeReferral() public returns (string memory ref) {
+        address user = msg.sender;
+        require(keccak256(abi.encodePacked(ownerToRef[user])) != keccak256(""), "User is already a referrer");
+
+        bytes3 data = bytes3(keccak256(abi.encode(user, block.timestamp)));
+        string memory ref = data.toString();
+        
         isActiveRef[ref] = true;
-        refToOwner[ref] = _user;
+        refToOwner[ref] = user;
+        ownerToRef[msg.sender] = ref;
     }
 
     // @notice Get total available rewards for Crowdloan contract
@@ -466,11 +471,6 @@ contract LiquidCrowdloan is
     // @return Current era number
     function currentEra() public view returns (uint256) {
         return dappsStaking.read_current_era();
-    }
-
-    function _getRef(address referral) private view returns (string memory) {
-        bytes3 data = bytes3(keccak256(abi.encode(referral, block.timestamp)));
-        return data.toString();
     }
 
     ////////////////////////////////////////////////////////////////////////////
