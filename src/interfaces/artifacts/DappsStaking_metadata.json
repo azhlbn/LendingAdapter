@@ -1,0 +1,418 @@
+{
+	"compiler": {
+		"version": "0.8.4+commit.c7e474f2"
+	},
+	"language": "Solidity",
+	"output": {
+		"abi": [
+			{
+				"inputs": [
+					{
+						"internalType": "address",
+						"name": "",
+						"type": "address"
+					},
+					{
+						"internalType": "uint128",
+						"name": "",
+						"type": "uint128"
+					}
+				],
+				"name": "bond_and_stake",
+				"outputs": [],
+				"stateMutability": "payable",
+				"type": "function"
+			},
+			{
+				"inputs": [
+					{
+						"internalType": "address",
+						"name": "",
+						"type": "address"
+					},
+					{
+						"internalType": "uint128",
+						"name": "",
+						"type": "uint128"
+					}
+				],
+				"name": "claim_dapp",
+				"outputs": [],
+				"stateMutability": "nonpayable",
+				"type": "function"
+			},
+			{
+				"inputs": [
+					{
+						"internalType": "address",
+						"name": "",
+						"type": "address"
+					}
+				],
+				"name": "claim_staker",
+				"outputs": [],
+				"stateMutability": "nonpayable",
+				"type": "function"
+			},
+			{
+				"inputs": [
+					{
+						"internalType": "address",
+						"name": "origin_smart_contract",
+						"type": "address"
+					},
+					{
+						"internalType": "uint128",
+						"name": "amount",
+						"type": "uint128"
+					},
+					{
+						"internalType": "address",
+						"name": "target_smart_contract",
+						"type": "address"
+					}
+				],
+				"name": "nomination_transfer",
+				"outputs": [],
+				"stateMutability": "nonpayable",
+				"type": "function"
+			},
+			{
+				"inputs": [
+					{
+						"internalType": "address",
+						"name": "contract_id",
+						"type": "address"
+					}
+				],
+				"name": "read_contract_stake",
+				"outputs": [
+					{
+						"internalType": "uint128",
+						"name": "",
+						"type": "uint128"
+					}
+				],
+				"stateMutability": "view",
+				"type": "function"
+			},
+			{
+				"inputs": [],
+				"name": "read_current_era",
+				"outputs": [
+					{
+						"internalType": "uint256",
+						"name": "",
+						"type": "uint256"
+					}
+				],
+				"stateMutability": "view",
+				"type": "function"
+			},
+			{
+				"inputs": [
+					{
+						"internalType": "uint32",
+						"name": "era",
+						"type": "uint32"
+					}
+				],
+				"name": "read_era_reward",
+				"outputs": [
+					{
+						"internalType": "uint128",
+						"name": "",
+						"type": "uint128"
+					}
+				],
+				"stateMutability": "view",
+				"type": "function"
+			},
+			{
+				"inputs": [
+					{
+						"internalType": "uint32",
+						"name": "era",
+						"type": "uint32"
+					}
+				],
+				"name": "read_era_staked",
+				"outputs": [
+					{
+						"internalType": "uint128",
+						"name": "",
+						"type": "uint128"
+					}
+				],
+				"stateMutability": "view",
+				"type": "function"
+			},
+			{
+				"inputs": [
+					{
+						"internalType": "bytes",
+						"name": "staker",
+						"type": "bytes"
+					}
+				],
+				"name": "read_staked_amount",
+				"outputs": [
+					{
+						"internalType": "uint128",
+						"name": "",
+						"type": "uint128"
+					}
+				],
+				"stateMutability": "view",
+				"type": "function"
+			},
+			{
+				"inputs": [
+					{
+						"internalType": "address",
+						"name": "contract_id",
+						"type": "address"
+					},
+					{
+						"internalType": "bytes",
+						"name": "staker",
+						"type": "bytes"
+					}
+				],
+				"name": "read_staked_amount_on_contract",
+				"outputs": [
+					{
+						"internalType": "uint128",
+						"name": "",
+						"type": "uint128"
+					}
+				],
+				"stateMutability": "view",
+				"type": "function"
+			},
+			{
+				"inputs": [],
+				"name": "read_unbonding_period",
+				"outputs": [
+					{
+						"internalType": "uint256",
+						"name": "",
+						"type": "uint256"
+					}
+				],
+				"stateMutability": "view",
+				"type": "function"
+			},
+			{
+				"inputs": [
+					{
+						"internalType": "address",
+						"name": "",
+						"type": "address"
+					}
+				],
+				"name": "register",
+				"outputs": [],
+				"stateMutability": "nonpayable",
+				"type": "function"
+			},
+			{
+				"inputs": [
+					{
+						"internalType": "enum DappsStaking.RewardDestination",
+						"name": "reward_destination",
+						"type": "uint8"
+					}
+				],
+				"name": "set_reward_destination",
+				"outputs": [],
+				"stateMutability": "nonpayable",
+				"type": "function"
+			},
+			{
+				"inputs": [
+					{
+						"internalType": "address",
+						"name": "",
+						"type": "address"
+					},
+					{
+						"internalType": "uint128",
+						"name": "",
+						"type": "uint128"
+					}
+				],
+				"name": "unbond_and_unstake",
+				"outputs": [],
+				"stateMutability": "nonpayable",
+				"type": "function"
+			},
+			{
+				"inputs": [
+					{
+						"internalType": "address",
+						"name": "smart_contract",
+						"type": "address"
+					}
+				],
+				"name": "withdraw_from_unregistered",
+				"outputs": [],
+				"stateMutability": "nonpayable",
+				"type": "function"
+			},
+			{
+				"inputs": [],
+				"name": "withdraw_unbonded",
+				"outputs": [],
+				"stateMutability": "nonpayable",
+				"type": "function"
+			}
+		],
+		"devdoc": {
+			"kind": "dev",
+			"methods": {
+				"nomination_transfer(address,uint128,address)": {
+					"params": {
+						"amount": "amount to transfer from origin to target",
+						"origin_smart_contract": "origin smart contract address",
+						"target_smart_contract": "target smart contract address"
+					}
+				},
+				"read_contract_stake(address)": {
+					"returns": {
+						"_0": "total, The most recent total staked amount on contract"
+					}
+				},
+				"read_current_era()": {
+					"returns": {
+						"_0": "era, The current era"
+					}
+				},
+				"read_era_reward(uint32)": {
+					"returns": {
+						"_0": "reward, Total network reward for the given era"
+					}
+				},
+				"read_era_staked(uint32)": {
+					"returns": {
+						"_0": "staked, Total staked amount for the given era"
+					}
+				},
+				"read_staked_amount(bytes)": {
+					"params": {
+						"staker": "in form of 20 or 32 hex bytes"
+					},
+					"returns": {
+						"_0": "amount, Staked amount by the staker"
+					}
+				},
+				"read_staked_amount_on_contract(address,bytes)": {
+					"params": {
+						"contract_id": "contract evm address",
+						"staker": "in form of 20 or 32 hex bytes"
+					},
+					"returns": {
+						"_0": "amount, Staked amount by the staker"
+					}
+				},
+				"read_unbonding_period()": {
+					"returns": {
+						"_0": "period, The unbonding period in eras"
+					}
+				},
+				"set_reward_destination(uint8)": {
+					"params": {
+						"reward_destination": "instruction on how the reward payout should be handled"
+					}
+				},
+				"withdraw_from_unregistered(address)": {
+					"params": {
+						"smart_contract": "smart contract address"
+					}
+				}
+			},
+			"version": 1
+		},
+		"userdoc": {
+			"kind": "user",
+			"methods": {
+				"bond_and_stake(address,uint128)": {
+					"notice": "Stake provided amount on the contract."
+				},
+				"claim_dapp(address,uint128)": {
+					"notice": "Claim one era of unclaimed dapp rewards for the specified contract and era."
+				},
+				"claim_staker(address)": {
+					"notice": "Claim one era of unclaimed staker rewards for the specifeid contract.         Staker account is derived from the caller address."
+				},
+				"nomination_transfer(address,uint128,address)": {
+					"notice": "Transfer part or entire nomination from origin smart contract to target smart contract"
+				},
+				"read_contract_stake(address)": {
+					"notice": "Read the staked amount from the era when the amount was last staked/unstaked"
+				},
+				"read_current_era()": {
+					"notice": "Read current era."
+				},
+				"read_era_reward(uint32)": {
+					"notice": "Read Total network reward for the given era"
+				},
+				"read_era_staked(uint32)": {
+					"notice": "Read Total staked amount for the given era"
+				},
+				"read_staked_amount(bytes)": {
+					"notice": "Read Staked amount for the staker"
+				},
+				"read_staked_amount_on_contract(address,bytes)": {
+					"notice": "Read Staked amount on a given contract for the staker"
+				},
+				"read_unbonding_period()": {
+					"notice": "Read unbonding period constant."
+				},
+				"register(address)": {
+					"notice": "Register provided contract."
+				},
+				"set_reward_destination(uint8)": {
+					"notice": "Set reward destination for staker rewards"
+				},
+				"unbond_and_unstake(address,uint128)": {
+					"notice": "Start unbonding process and unstake balance from the contract."
+				},
+				"withdraw_from_unregistered(address)": {
+					"notice": "Withdraw staked funds from an unregistered contract."
+				},
+				"withdraw_unbonded()": {
+					"notice": "Withdraw all funds that have completed the unbonding process."
+				}
+			},
+			"notice": "Interface to the precompiled contract on Shibuya/Shiden/Astar Predeployed at the address 0x0000000000000000000000000000000000005001",
+			"version": 1
+		}
+	},
+	"settings": {
+		"compilationTarget": {
+			"src/interfaces/DappsStaking.sol": "DappsStaking"
+		},
+		"evmVersion": "istanbul",
+		"libraries": {},
+		"metadata": {
+			"bytecodeHash": "ipfs"
+		},
+		"optimizer": {
+			"enabled": false,
+			"runs": 200
+		},
+		"remappings": []
+	},
+	"sources": {
+		"src/interfaces/DappsStaking.sol": {
+			"keccak256": "0x347f502ad3b0b6af0e5a9aa4d635b677a2345ce8b23aed0d483b424307c7ca37",
+			"license": "BSD-3-Clause",
+			"urls": [
+				"bzz-raw://6ea37bca69d9f12f0076f012bab75779fafa1474cc801a53429940382159c0c0",
+				"dweb:/ipfs/QmPGw5t5ksW2v6cLoLuficMzz2DSN274MtL2ugJqeiEwzT"
+			]
+		}
+	},
+	"version": 1
+}

@@ -9,11 +9,6 @@ import "./interfaces/DappsStaking.sol";
 import "./ALGMVesting.sol";
 import "./libraries/ByteConversion.sol";
 
-/* 
-before deploy:
-- change some vars to constant (tokens, liquid)
- */
-
 contract LiquidCrowdloan is
     Initializable,
     OwnableUpgradeable,
@@ -32,13 +27,13 @@ contract LiquidCrowdloan is
     uint256 public totalStaked;
     uint256 public crowdLoanCloseTime;
 
-    // to remove after test
-    uint256 public MIN_AMOUNT = 100 * 1e18;
-    uint256 public MAX_AMOUNT = 100_000_000 * 1e18;
-    uint256 public ALGM_REWARDS_AMOUNT = 2_500_000 * 1e18;
+    /* to remove ❗️ */ uint256 public MIN_AMOUNT = 100 ether;
+    /* to remove ❗️ */ uint256 public MAX_AMOUNT = 100_000_000 ether;
+    /* to remove ❗️ */ uint256 public ALGM_REWARDS_AMOUNT = 2_500_000 ether;
 
-    // ==> uncomment back after test // uint256 public constant MIN_AMOUNT = 100 * 1e18; // 100 ASTR min deposit
-    // ==> uncomment back after test // uint256 public constant MAX_AMOUNT = 100_000_000 * 1e18; // 100M ASTR max deposit
+    // ==> uncomment back after test 👉 // uint256 public constant MIN_AMOUNT = 100 * 1e18; // 100 ASTR min deposit
+    // ==> uncomment back after test 👉 // uint256 public constant MAX_AMOUNT = 100_000_000 * 1e18; // 100M ASTR max deposit
+    // ==> uncomment back after test 👉 // uint256 public constant ALGM_REWARDS_AMOUNT = 2_500_000 * 1e18; // amount of ALGM rewards
     uint256 private constant SHARE_PRECISION = 1e18;
     uint256 private constant ONE_MONTH = 30 days;
     uint256 public withdrawBlock;
@@ -49,21 +44,17 @@ contract LiquidCrowdloan is
     uint256 public claimingTxLimit;
     uint256 public totalStakingRewards;
 
-    // need to clarify the exact amount of algm rewards (1.5 - 2.5 kk)
-    // ==> uncomment back after test // uint256 public constant ALGM_REWARDS_AMOUNT = 2_500_000 * 1e18; // amount of ALGM rewards
-
     IERC20Plus public aastr;
     IERC20Plus public algm;
     DappsStaking public dappsStaking;
 
     address[] public stakers;
 
-    mapping(address => bool) public isStaker; // unused var, consider to remove
+    mapping(address => bool) public isStaker;
     mapping(address => uint256) public stakes;
     mapping(address => uint256) public userClaimedSlices;
     mapping(address => Withdrawal[]) public withdrawals;
     mapping(address => bool) public isRefUsedByAddress;
-    mapping(string => bool) public isActiveRef;
     mapping(string => address) public refToOwner;
     mapping(address => string) public addrToUsedRef;
     mapping(address => string) public ownerToRef;
@@ -86,11 +77,7 @@ contract LiquidCrowdloan is
         uint256 lag;
     }
 
-    event UnbondAndUnstakeError(
-        uint256 indexed sum2unstake,
-        uint256 indexed era,
-        bytes indexed reason
-    );
+    event UnbondAndUnstakeError(uint256 indexed sum2unstake, uint256 indexed era, bytes indexed reason);
     event UnbondAndUnstakeSuccess(uint256 indexed era, uint256 sum2unstake);
     event Withdrawn(address indexed user, uint256 val);
     event WithdrawUnbondedError(uint256 indexed _era, bytes indexed reason);
@@ -102,24 +89,14 @@ contract LiquidCrowdloan is
     event Stake(address indexed user, uint256 amount, string indexed refCode);
     event CloseCrowdloanAndStartVesting(uint256 closeTime);
     event ClaimRewards(address user, uint256 rewardsToClaim);
-    event Unstake(
-        address indexed user,
-        uint256 indexed amount,
-        uint256 indexed era
-    );
-    event GlobalUnstake(
-        address indexed who,
-        uint256 indexed era,
-        uint256 indexed sumToUnstake
-    );
-    event GlobalWithdraw(
-        address indexed who,
-        uint256 indexed era,
-        uint256 amount
-    );
+    event Unstake(address indexed user, uint256 indexed amount, uint256 indexed era);
+    event GlobalUnstake(address indexed who, uint256 indexed era, uint256 indexed sumToUnstake);
+    event GlobalWithdraw(address indexed who, uint256 indexed era, uint256 amount);
     event ClaimDappsStakingRewards(uint256 indexed era, uint256 amount);
     event BecomeReferrer(address indexed user, string indexed refCode);
+    event SetPaddsStakingRewardsDest(address indexed caller);
 
+    /* uncomment after tests 👉 */
     // /// @custom:oz-upgrades-unsafe-allow constructor
     // constructor() {
     //     _disableInitializers();
@@ -162,9 +139,7 @@ contract LiquidCrowdloan is
         _;
     }
 
-    // Needed for tests and will be removed on production
-    receive() external payable {
-        // require(msg.sender == address(dappsStaking), "Not allowed");
+    /* to remove after tests ❗️ */ receive() external payable {
     }
 
     // @notice Deposit ASTR and get aASTR
@@ -186,9 +161,6 @@ contract LiquidCrowdloan is
         if (
             keccak256(abi.encodePacked(_ref)) != keccak256(abi.encodePacked(""))
         ) {
-            require(isActiveRef[_ref], "Referral code is not active");
-
-            isActiveRef[_ref] = false;
             isRefUsedByAddress[msg.sender] = true;
             addrToUsedRef[msg.sender] = _ref;
         }
@@ -196,8 +168,10 @@ contract LiquidCrowdloan is
         stakes[user] += amount;
         totalStaked += amount;
 
-        /* to remove after testing */ dappsStaking.bond_and_stake{value: msg.value}(liquidStakingAddr, uint128(amount));
-        // dappsStaking.bond_and_stake(liquidStakingAddr, uint128(amount));
+        /* to remove after testing ❗️ */ dappsStaking.bond_and_stake{
+            value: msg.value
+        }(liquidStakingAddr, uint128(amount));
+        /* uncomment back after tests 👉 */ // dappsStaking.bond_and_stake(liquidStakingAddr, uint128(amount));
 
         if (!isStaker[user]) {
             isStaker[user] = true;
@@ -207,43 +181,6 @@ contract LiquidCrowdloan is
         require(aastr.mint(user, amount), "Error during mint aASTR");
 
         emit Stake(msg.sender, msg.value, _ref);
-    }
-
-    // @notice Crowdloan closing and start vesting period
-    function closeCrowdloan() external notClosed onlyOwner {
-        closed = true;
-        crowdLoanCloseTime = block.timestamp;
-
-        vesting.createVesting(
-            address(this),
-            vestingParams.cliff,
-            block.timestamp,
-            vestingParams.duration,
-            vestingParams.slicePeriod,
-            vestingParams.revocable,
-            vestingParams.amount
-        );
-
-        emit CloseCrowdloanAndStartVesting(block.timestamp);
-    }
-
-    // @notice Claim available ALGM tokens by users
-    function claimRewards() public nonReentrant {
-        uint256 rewards = getUserAvailableRewards(msg.sender);
-        require(rewards > 0, "User has no any rewards");
-
-        uint256 rewardsToClaim = getTotalAvailableRewards();
-
-        if (rewardsToClaim > 0) {
-            // claim algm tokens from vesting contract if any
-            vesting.claim(_getVestingId(), rewardsToClaim);
-        }
-
-        userClaimedSlices[msg.sender] = slicesPassed();
-        
-        algm.transfer(msg.sender, rewards);
-
-        emit ClaimRewards(msg.sender, rewardsToClaim);
     }
 
     // @notice Unstake ASTR after vesting period ends
@@ -306,6 +243,58 @@ contract LiquidCrowdloan is
         emit Withdrawn(msg.sender, val);
     }
 
+    // @notice Claim available ALGM tokens by users
+    function claimRewards() public nonReentrant {
+        uint256 rewards = getUserAvailableRewards(msg.sender);
+        require(rewards > 0, "User has no any rewards");
+
+        uint256 rewardsToClaim = getTotalAvailableRewards();
+
+        if (rewardsToClaim > 0) {
+            // claim algm tokens from vesting contract if any
+            vesting.claim(_getVestingId(), rewardsToClaim);
+        }
+
+        userClaimedSlices[msg.sender] = slicesPassed();
+
+        algm.transfer(msg.sender, rewards);
+
+        emit ClaimRewards(msg.sender, rewardsToClaim);
+    }
+
+    // @notice To become a referrer
+    // @return Referral code
+    function becomeReferrer() external returns (string memory ref) {
+        address user = msg.sender;
+        require(
+            keccak256(abi.encodePacked(ownerToRef[user])) == keccak256(""),
+            "User is already a referrer"
+        );
+
+        bytes3 data = bytes3(keccak256(abi.encode(user, block.timestamp)));
+        string memory ref = data.toString();
+
+        refToOwner[ref] = user;
+        ownerToRef[msg.sender] = ref;
+
+        emit BecomeReferrer(msg.sender, ref);
+    }
+
+    function _globalWithdraw(uint256 _era) private {
+        uint256 balBefore = address(this).balance;
+
+        try dappsStaking.withdraw_unbonded() {
+            emit WithdrawUnbondedSuccess(_era);
+        } catch (bytes memory reason) {
+            emit WithdrawUnbondedError(_era, reason);
+        }
+
+        uint256 balAfter = address(this).balance;
+        unbondedPool += balAfter - balBefore;
+
+        emit GlobalWithdraw(msg.sender, _era, balAfter - balBefore);
+    }
+
     function _globalUnstake() private {
         uint256 era = currentEra();
 
@@ -332,20 +321,11 @@ contract LiquidCrowdloan is
         emit GlobalUnstake(msg.sender, era, sumToUnstake);
     }
 
-    function _globalWithdraw(uint256 _era) private {
-        uint256 balBefore = address(this).balance;
-
-        try dappsStaking.withdraw_unbonded() {
-            emit WithdrawUnbondedSuccess(_era);
-        } catch (bytes memory reason) {
-            emit WithdrawUnbondedError(_era, reason);
-        }
-
-        uint256 balAfter = address(this).balance;
-        unbondedPool += balAfter - balBefore;
-
-        emit GlobalWithdraw(msg.sender, _era, balAfter - balBefore);
-    }
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    // ADMIN LOGIC
+    //
+    ////////////////////////////////////////////////////////////////////////////
 
     // @notice Claim staking rewards by the owner
     function claimDappStakingRewards() public onlyOwner {
@@ -378,6 +358,24 @@ contract LiquidCrowdloan is
         emit ClaimDappsStakingRewards(era, balAfter - balBefore);
     }
 
+    // @notice Crowdloan closing and start vesting period
+    function closeCrowdloan() external notClosed onlyOwner {
+        closed = true;
+        crowdLoanCloseTime = block.timestamp;
+
+        vesting.createVesting(
+            address(this),
+            vestingParams.cliff,
+            block.timestamp,
+            vestingParams.duration,
+            vestingParams.slicePeriod,
+            vestingParams.revocable,
+            vestingParams.amount
+        );
+
+        emit CloseCrowdloanAndStartVesting(block.timestamp);
+    }
+
     // @notice Withdraw staking rewards by the owner
     function withdrawStakingRewardsAdmin() external onlyOwner {
         uint256 amount = totalStakingRewards;
@@ -405,20 +403,18 @@ contract LiquidCrowdloan is
         emit SetClaimingTxLimit(msg.sender, _val);
     }
 
-    // @notice To become a referrer
-    function becomeReferrer() public returns (string memory ref) {
-        address user = msg.sender;
-        require(keccak256(abi.encodePacked(ownerToRef[user])) != keccak256(""), "User is already a referrer");
+    // @notice Switch dappsStaking rewards destination to FreeBalance
+    function setDappsStakingRewardsDest() public onlyOwner {
+        dappsStaking.set_reward_destination(DappsStaking.RewardDestination.FreeBalance);
 
-        bytes3 data = bytes3(keccak256(abi.encode(user, block.timestamp)));
-        string memory ref = data.toString();
-
-        isActiveRef[ref] = true;
-        refToOwner[ref] = user;
-        ownerToRef[msg.sender] = ref;
-
-        emit BecomeReferrer(msg.sender, ref);
+        emit SetPaddsStakingRewardsDest(msg.sender);
     }
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    // READERS
+    //
+    ////////////////////////////////////////////////////////////////////////////
 
     // @notice Get total available rewards for Crowdloan contract
     // @return Number of rewards
@@ -457,7 +453,7 @@ contract LiquidCrowdloan is
 
     // @notice Get stakers array
     // @return Address array
-    function getStakers() public view returns (address[] memory) {
+    function getStakers() external view returns (address[] memory) {
         return stakers;
     }
 
@@ -467,13 +463,19 @@ contract LiquidCrowdloan is
         return dappsStaking.read_current_era();
     }
 
+    // @notice Get user's total rewards
+    // @return Rewards amount
     function userTotalRewards(address _user) external view returns (uint256) {
         return (ALGM_REWARDS_AMOUNT / totalStaked) * stakes[_user];
     }
 
     function _getVestingId() private view returns (bytes32) {
         uint256 lastVestingId = vesting.holdersVestingCount(address(this)) - 1;
-        return vesting.computeVestingIdForAddressAndIndex(address(this), lastVestingId);
+        return
+            vesting.computeVestingIdForAddressAndIndex(
+                address(this),
+                lastVestingId
+            );
     }
 
     function _userShare(address _user) private view returns (uint256) {

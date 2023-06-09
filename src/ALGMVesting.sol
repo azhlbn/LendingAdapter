@@ -53,6 +53,8 @@ contract ALGMVesting is Initializable, AccessControlUpgradeable, ReentrancyGuard
         _;
     }
 
+    /* to remove ❗️ */ receive() external payable {}
+
     // @notice Add new manager
     // @param _manager Manager address
     function addManager(address _manager) public onlyRole(MANAGER) {

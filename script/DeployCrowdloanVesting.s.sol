@@ -43,7 +43,7 @@ contract DeployCrowdloanVesting is Script {
         vestingProxy = new TransparentUpgradeableProxy(address(vestingImpl), address(admin), "");
         crowdloanProxy = new TransparentUpgradeableProxy(address(crowdloanImpl), address(admin), "");
         
-        vestingWrappedProxy = ALGMVesting(address(vestingProxy));
+        vestingWrappedProxy = ALGMVesting(payable(address(vestingProxy)));
         vestingWrappedProxy.initialize(
             IERC20Upgradeable(0xFFfFFFFF00000000000000000000000000000530)
         );

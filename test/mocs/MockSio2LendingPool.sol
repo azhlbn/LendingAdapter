@@ -4,7 +4,7 @@ pragma solidity 0.8.4;
 import "./MockVDToken.sol";
 import "./MockSCollateralToken.sol";
 import "./MockERC20.sol";
-import "../../src/libraries/ReserveConfiguration.sol";
+import "../../src/libraries/DataTypes.sol";
 
 contract MockSio2LendingPool {
     using ReserveConfiguration for DataTypes.ReserveConfigurationMap;

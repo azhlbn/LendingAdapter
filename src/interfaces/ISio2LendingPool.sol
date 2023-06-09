@@ -1,7 +1,7 @@
 //SPDX-License-Identifier: MIT
 pragma solidity 0.8.4;
 
-import "../libraries/ReserveConfiguration.sol";
+import "../libraries/DataTypes.sol";
 
 interface ISio2LendingPool {
   /**
@@ -374,6 +374,13 @@ interface ISio2LendingPool {
     uint256 balanceFromAfter,
     uint256 balanceToBefore
   ) external;
+
+  /**
+   * @dev Returns the state and configuration of the reserve
+   * @param asset The address of the underlying asset of the reserve
+   * @return The state of the reserve
+   **/
+  function getReserveData(address asset) external view returns (DataTypes.ReserveData memory);
 
   function getReservesList() external view returns (address[] memory);
 

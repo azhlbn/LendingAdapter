@@ -19,7 +19,7 @@ contract GetState is Script {
     Getter getter;
 
     function setUp() public {
-        vesting = ALGMVesting(0x4F802625E02907b2CF0409a35288617e5CB7C762);
+        vesting = ALGMVesting(payable(0x4F802625E02907b2CF0409a35288617e5CB7C762));
         cl = LiquidCrowdloan(
             payable(0x59d3313feaa20555d84d6fBAb4652D267BE2a552)
         );

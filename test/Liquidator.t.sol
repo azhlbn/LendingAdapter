@@ -2,20 +2,28 @@
 pragma solidity ^0.8.4;
 
 import "forge-std/Test.sol";
+import "forge-std/stdlib.sol";
+import "forge-std/Vm.sol";
 import "@openzeppelin-upgradeable/contracts/token/ERC20/ERC20Upgradeable.sol";
 import "../src/Sio2Adapter.sol";
+import "../src/Sio2AdapterData.sol";
 import "../src/Sio2AdapterAssetManager.sol";
 import "../src/Liquidator.sol";
 import "../src/interfaces/ISio2LendingPoolAddressesProvider.sol";
 import "../src/interfaces/ISio2LendingPool.sol";
 import "../src/interfaces/ISio2PriceOracle.sol";
 import "../src/interfaces/IArthswapRouter.sol";
+import "../src/interfaces/IArthswapPair.sol";
 
 contract LiquidatorTest is Test {
+    using stdStorage for StdStorage;
+
+    StdStorage stdstore;
     Sio2Adapter adapter;
     Sio2AdapterAssetManager assetManager;
     Liquidator liquidator;
     ISio2LendingPool pool = ISio2LendingPool(0x4df48B292C026f0340B60C582f58aa41E09fF0de);
+    Sio2AdapterData data;
 
     address provider;
     address user;
@@ -77,12 +85,15 @@ contract LiquidatorTest is Test {
         );
 
         assetManager.setAdapter(adapter);
+        data = new Sio2AdapterData();
+        data.initialize(adapter, assetManager);
 
         liquidator = new Liquidator(
             ISio2LendingPool(0x4df48B292C026f0340B60C582f58aa41E09fF0de),
             Sio2Adapter(address(adapter)),
             Sio2AdapterAssetManager(address(assetManager)),
             ISio2LendingPoolAddressesProvider(0x2660e0668dd5A18Ed092D5351FfF7B0A403f9721),
+            data,
             col
         );
 
@@ -99,11 +110,11 @@ contract LiquidatorTest is Test {
 
         vm.startPrank(user);
         colT.approve(address(adapter), UINT256_MAX);
-        adapter.supply(5000 ether);
+        adapter.supply(70 ether);
 
-        adapter.borrow("BUSD", 5 ether);
-        adapter.borrow("BNB", 1 ether);
-        adapter.borrow("WETH", 0.5 ether);
+        adapter.borrow("BUSD", 0.2 ether);
+        adapter.borrow("BNB", 0.1 ether);
+        adapter.borrow("WETH", 0.01 ether);
         vm.stopPrank();
     }    
 
@@ -151,14 +162,14 @@ contract LiquidatorTest is Test {
         vm.stopPrank();
     }
 
-    function testSwapCollateralToASTR() public {
-        deal(dai, address(liquidator), 1e18);
-        console.log("liquidator collateral bal:", daiT.balanceOf(address(liquidator)));
-        liquidator.swapCollateralToASTR();
+    // function testSwapCollateralToASTR() public {
+    //     deal(dai, address(liquidator), 1e18);
+    //     console.log("liquidator collateral bal:", daiT.balanceOf(address(liquidator)));
+    //     liquidator.swapCollateralToASTR();
 
-        assertEq(colT.balanceOf(address(liquidator)), 0);
-        assertGt(address(this).balance, 0);
-    }
+    //     assertEq(colT.balanceOf(address(liquidator)), 0);
+    //     assertGt(address(this).balance, 0);
+    // }
 
     function testFlashloan() public {
         deal(weth, address(liquidator), 1e18);
@@ -195,35 +206,130 @@ contract LiquidatorTest is Test {
         );
     }
 
+    function addLiquidityToMaticWeth() public {
+        // matic weth pair 0x66fD9a8eacC51dCA17c823a35b6f743Bb05ff221
+        deal(0xdd90E5E87A2081Dcf0391920868eBc2FFB81a1aF, address(this), 1000000 ether); // mint matic
+        deal(0x81ECac0D6Be0550A00FF064a4f9dd2400585FE9c, address(this), 10000 ether); // mint weth
+        vm.deal(address(this), 10 ether);
+
+        IArthswapRouter router = IArthswapRouter(0xE915D2393a08a00c5A463053edD31bAe2199b9e7);
+        IArthswapPair pair = IArthswapPair(0x66fD9a8eacC51dCA17c823a35b6f743Bb05ff221);
+
+        ERC20(0xdd90E5E87A2081Dcf0391920868eBc2FFB81a1aF).approve(address(router), UINT256_MAX);
+        ERC20(0x81ECac0D6Be0550A00FF064a4f9dd2400585FE9c).approve(address(router), UINT256_MAX);
+
+        router.addLiquidity(
+            0x81ECac0D6Be0550A00FF064a4f9dd2400585FE9c,
+            0xdd90E5E87A2081Dcf0391920868eBc2FFB81a1aF,
+            10000 ether,
+            1000000 ether,
+            1,
+            1,
+            address(this),
+            1e18
+        );
+
+        (uint256 res1, uint256 res2,) = pair.getReserves();
+
+        console.log("res1 =>", res1);
+        console.log("res2 =>", res2);
+    }
+
+    function addLiquidityToMaticSdn() public {
+        // matic sdn pair 0x1cFD05d568e25b4402604FC8Db249934e1236DEd
+        deal(0xdd90E5E87A2081Dcf0391920868eBc2FFB81a1aF, address(this), 1000000 ether); // mint matic
+        deal(0x75364D4F779d0Bd0facD9a218c67f87dD9Aff3b4, address(this), 1000000 ether); // mint sdn
+        vm.deal(address(this), 10 ether);
+
+        IArthswapRouter router = IArthswapRouter(0xE915D2393a08a00c5A463053edD31bAe2199b9e7);
+        IArthswapPair pair = IArthswapPair(0x1cFD05d568e25b4402604FC8Db249934e1236DEd);
+
+        ERC20(0xdd90E5E87A2081Dcf0391920868eBc2FFB81a1aF).approve(address(router), UINT256_MAX);
+        ERC20(0x75364D4F779d0Bd0facD9a218c67f87dD9Aff3b4).approve(address(router), UINT256_MAX);
+
+        router.addLiquidity(
+            0x75364D4F779d0Bd0facD9a218c67f87dD9Aff3b4,
+            0xdd90E5E87A2081Dcf0391920868eBc2FFB81a1aF,
+            1000000 ether,
+            1000000 ether,
+            1,
+            1,
+            address(this),
+            1e18
+        );
+
+        (uint256 res1, uint256 res2,) = pair.getReserves();
+    }
+
+    function addLiquidityToMaticBnb() public {
+        // matic bnb pair 0x7701Ed46d705e7D743c194f5Eeb926c5545D64b9
+        deal(0xdd90E5E87A2081Dcf0391920868eBc2FFB81a1aF, address(this), 1000000 ether); // mint matic
+        deal(0x7f27352D5F83Db87a5A3E00f4B07Cc2138D8ee52, address(this), 1000000 ether); // mint bnb
+        vm.deal(address(this), 10 ether);
+
+        IArthswapRouter router = IArthswapRouter(0xE915D2393a08a00c5A463053edD31bAe2199b9e7);
+        IArthswapPair pair = IArthswapPair(0x1cFD05d568e25b4402604FC8Db249934e1236DEd);
+
+        ERC20(0xdd90E5E87A2081Dcf0391920868eBc2FFB81a1aF).approve(address(router), UINT256_MAX);
+        ERC20(0x7f27352D5F83Db87a5A3E00f4B07Cc2138D8ee52).approve(address(router), UINT256_MAX);
+
+        router.addLiquidity(
+            0x7f27352D5F83Db87a5A3E00f4B07Cc2138D8ee52,
+            0xdd90E5E87A2081Dcf0391920868eBc2FFB81a1aF,
+            1000000 ether,
+            1000000 ether,
+            1,
+            1,
+            address(this),
+            1e18
+        );
+
+        (uint256 res1, uint256 res2,) = pair.getReserves();
+    }
+
     function testLiquidator() public {
         liquidationsPreset();
+        addLiquidityToMaticWeth();
+        addLiquidityToMaticSdn();
+        addLiquidityToMaticBnb();
+        
+        // vm.deal(address(liquidator), 500_000 ether);
 
-        deal(bnb, address(liquidator), 10e18);
-        deal(busd, address(liquidator), 10e18);
-        deal(weth, address(liquidator), 10e18);
-
-        uint256 hf = adapter.estimateHF(user);
+        uint256 hf = data.estimateHF(user);
         console.log("initial hf is:", hf);
 
         (uint256 availableToBorrowUSD, ) = adapter.availableCollateralUSD(user);
         console.log("available to borrow usd:", availableToBorrowUSD);
 
-        uint256 busdAmountToBorrow = adapter.fromUSD(busd, availableToBorrowUSD);
-        console.log("busdAmountToBorrow is:", busdAmountToBorrow);
+        uint256 wethAmountToBorrow = adapter.fromUSD(weth, availableToBorrowUSD);
+        console.log("busdAmountToBorrow is:", wethAmountToBorrow);
 
         vm.prank(user);
-        adapter.borrow("BUSD", busdAmountToBorrow);
+        adapter.borrow("WETH", wethAmountToBorrow);
 
-        console.log("hf after borrow busd:", adapter.estimateHF(user));
+        console.log("hf after borrow busd:", data.estimateHF(user));
 
-        adapter.setLT(adapter.collateralLT() * 70 / 100);
+        // set LT
+        stdstore
+            .target(address(adapter))
+            .sig(adapter.collateralLT())
+            .checked_write(adapter.collateralLT() * 80 / 100);
 
-        console.log("hf after lt setting:", adapter.estimateHF(user));
+        console.log("hf after lt setting:", data.estimateHF(user));
 
         liquidator.liquidate(user);
 
-        console.log("hf after liquidation:", adapter.estimateHF(user));
+        while (data.estimateHF(user) < 1 ether) {
+            Sio2Adapter.User memory userStruct = adapter.getUser(user);
+            if (userStruct.collateralAmount > 1 ether) {
+                liquidator.liquidate(user);
+            }
+            console.log("hf after liquidation ===>", data.estimateHF(user));
+        }
+    }
 
-        console.log("liquidator balance is:", address(liquidator).balance);
+    function testAssetParameters() public {
+        (, uint256 liquidationPenalty, ) = assetManager.getAssetParameters(busd);
+        console.log("=>", liquidationPenalty);
     }
 }

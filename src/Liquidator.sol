@@ -7,6 +7,7 @@ import "./FlashLoanReceiverBase.sol";
 import "./interfaces/ISio2LendingPool.sol";
 import "./Sio2Adapter.sol";
 import "./Sio2AdapterAssetManager.sol";
+import "./Sio2AdapterData.sol";
 import "./interfaces/IArthswapRouter.sol";
 import "./interfaces/IArthswapFactory.sol";
 import "./libraries/ArthswapLibrary.sol";
@@ -15,6 +16,7 @@ contract Liquidator is FlashLoanReceiverBase, AccessControl {
     ISio2LendingPool public pool;
     Sio2Adapter public adapter;
     Sio2AdapterAssetManager public assetManager;
+    Sio2AdapterData public data;
 
     IArthswapRouter public constant ROUTER =
         IArthswapRouter(0xE915D2393a08a00c5A463053edD31bAe2199b9e7);
@@ -58,6 +60,7 @@ contract Liquidator is FlashLoanReceiverBase, AccessControl {
         Sio2Adapter _adapter,
         Sio2AdapterAssetManager _assetManager,
         ISio2LendingPoolAddressesProvider _provider,
+        Sio2AdapterData _data,
         address _nastrAddr
     ) FlashLoanReceiverBase(_provider) {
         _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
@@ -66,7 +69,8 @@ contract Liquidator is FlashLoanReceiverBase, AccessControl {
         adapter = _adapter;
         assetManager = _assetManager;
         nastrAddr = _nastrAddr;
-        pairToPath[nastrAddr][wastrAddr] = [
+        data = _data;
+        /* set path for nastr => astr 👉 */ pairToPath[nastrAddr][wastrAddr] = [
             /* path for DAI => ASTR */ 0x6De33698e9e9b787e09d3Bd7771ef63557E148bb,
             0x6a2d262D56735DbA19Dd70682B39F6bE9a931D98,
             0xAeaaf0e2c81Af264101B9129C00F4440cCF0F720
@@ -86,7 +90,7 @@ contract Liquidator is FlashLoanReceiverBase, AccessControl {
     receive() external payable {}
 
     function liquidate(address _user) public onlyRole(LIQUIDATOR) {
-        /* uncomment it 👉 */ require(adapter.estimateHF(_user) < 1e18, "Pos is healthy enough");
+        require(data.estimateHF(_user) < 1e18, "Pos is healthy enough");
         currentUser = _user;
 
         // get user's debt tokens names and debt amounts
@@ -119,37 +123,9 @@ contract Liquidator is FlashLoanReceiverBase, AccessControl {
         address,
         bytes calldata
     ) external override returns (bool) {
-        _insideFlashLoan(assets, amounts);
 
-        swapCollateralToASTR();
-
-        // swap astr to tokens for repay flashloan
+        // do liquidations and collect collateral
         for (uint256 idx; idx < assets.length;) {
-            uint256[] memory amountsIn = ROUTER.getAmountsIn(premiums[idx], pairToPath[wastrAddr][assets[idx]]);
-            ROUTER.swapETHForExactTokens{value: amountsIn[0]}(
-                premiums[idx],
-                pairToPath[wastrAddr][assets[idx]],
-                address(this),
-                block.timestamp + 20 * 60
-            );
-            unchecked { ++idx; }
-        }
-
-        // add check for enough tokens to repay flashloan. Swap astr to token if not
-
-        for (uint256 idx = 0; idx < assets.length; idx++) {
-            uint256 amountOwing = amounts[idx] + premiums[idx];
-            IERC20(assets[idx]).approve(address(LENDING_POOL), amountOwing);
-        }
-
-        return true;
-    }
-
-    function _insideFlashLoan(
-        address[] calldata assets,
-        uint256[] calldata amounts
-    ) private {
-        for (uint256 idx; idx < assets.length; ) {
             ERC20(assets[idx]).approve(address(adapter), amounts[idx]);
             uint256 receivedCollateral = adapter.liquidationCall(
                 ERC20(assets[idx]).symbol(),
@@ -160,11 +136,33 @@ contract Liquidator is FlashLoanReceiverBase, AccessControl {
             unchecked { ++idx; }
         }
 
-        // swap nASTR to ASTR (sirius or arthswap)
-        // swap received collateral ASTR to debt token to pay back fl
+        // swap all collateral to native astr
+        _swapCollateralToASTR();
+
+        // swap astr to tokens to repay flashloan
+        for (uint256 idx; idx < assets.length;) {
+            address tokenB = assets[idx];
+            uint256[] memory amountsIn = ROUTER.getAmountsIn(amounts[idx] + premiums[idx], pairToPath[wastrAddr][tokenB]);
+            ROUTER.swapETHForExactTokens{value: amountsIn[0]}(
+                amounts[idx] + premiums[idx],
+                pairToPath[wastrAddr][tokenB],
+                address(this),
+                block.timestamp + 20 * 60
+            );
+
+            // approve amounts to lending pool to transfer debt
+            uint256 amountOwing = amounts[idx] + premiums[idx];
+            IERC20(assets[idx]).approve(address(LENDING_POOL), amountOwing);
+
+            unchecked { ++idx; }
+        }
+
+        return true;
     }
 
-    /* change visibility or access 👉 */ function swapCollateralToASTR() public { 
+    // function swapASTRtoTokens(address[] calldata assets, uint256[] calldata amounts, uint256[] calldata premiums)
+
+    function _swapCollateralToASTR() private { 
         uint256 nastrBalance = ERC20(nastrAddr).balanceOf(address(this));
         uint256[] memory amounts = ArthswapLibrary.getAmountsOut(
             ROUTER.factory(),
@@ -263,7 +261,6 @@ contract Liquidator is FlashLoanReceiverBase, AccessControl {
         uint256[] memory _amounts
     ) public {
         address receiverAddress = address(this);
-
         address onBehalfOf = address(this);
         bytes memory params = "";
         uint16 referralCode = 0;
@@ -341,7 +338,7 @@ contract Liquidator is FlashLoanReceiverBase, AccessControl {
         return adapter.fromUSD(addrByName(_name), _amount);
     }
 
-    /* withdraw balances below 👉 */
+    /* withdraw balances below */
 
     function withdrawToken(
         address token,

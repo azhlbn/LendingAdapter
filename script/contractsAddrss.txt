@@ -1,0 +1,4 @@
+== Logs ==
+  vesting: 0x4e7ED9Af1a838b1aD0d4D7047d2C0F96AB58D14e
+  crowdloan: 0x5dc39BbD69d1B2173aB8eAB6e2C5774BFBF5fEa3
+  dappsStaking: 0x7a5149fa0ffF8fCD31e522eD5bdDe5de5341Bd56

@@ -10,6 +10,25 @@
 				"inputs": [
 					{
 						"indexed": true,
+						"internalType": "address",
+						"name": "user",
+						"type": "address"
+					},
+					{
+						"indexed": true,
+						"internalType": "string",
+						"name": "refCode",
+						"type": "string"
+					}
+				],
+				"name": "BecomeReferrer",
+				"type": "event"
+			},
+			{
+				"anonymous": false,
+				"inputs": [
+					{
+						"indexed": true,
 						"internalType": "uint256",
 						"name": "era",
 						"type": "uint256"
@@ -193,6 +212,19 @@
 					}
 				],
 				"name": "SetClaimingTxLimit",
+				"type": "event"
+			},
+			{
+				"anonymous": false,
+				"inputs": [
+					{
+						"indexed": true,
+						"internalType": "address",
+						"name": "caller",
+						"type": "address"
+					}
+				],
+				"name": "SetPaddsStakingRewardsDest",
 				"type": "event"
 			},
 			{
@@ -444,14 +476,8 @@
 				"type": "function"
 			},
 			{
-				"inputs": [
-					{
-						"internalType": "address",
-						"name": "_user",
-						"type": "address"
-					}
-				],
-				"name": "becomeReferral",
+				"inputs": [],
+				"name": "becomeReferrer",
 				"outputs": [
 					{
 						"internalType": "string",
@@ -654,25 +680,6 @@
 			{
 				"inputs": [
 					{
-						"internalType": "string",
-						"name": "",
-						"type": "string"
-					}
-				],
-				"name": "isActiveRef",
-				"outputs": [
-					{
-						"internalType": "bool",
-						"name": "",
-						"type": "bool"
-					}
-				],
-				"stateMutability": "view",
-				"type": "function"
-			},
-			{
-				"inputs": [
-					{
 						"internalType": "address",
 						"name": "",
 						"type": "address"
@@ -781,6 +788,25 @@
 			{
 				"inputs": [
 					{
+						"internalType": "address",
+						"name": "",
+						"type": "address"
+					}
+				],
+				"name": "ownerToRef",
+				"outputs": [
+					{
+						"internalType": "string",
+						"name": "",
+						"type": "string"
+					}
+				],
+				"stateMutability": "view",
+				"type": "function"
+			},
+			{
+				"inputs": [
+					{
 						"internalType": "string",
 						"name": "",
 						"type": "string"
@@ -864,6 +890,13 @@
 					}
 				],
 				"name": "setDappsStakingAddress",
+				"outputs": [],
+				"stateMutability": "nonpayable",
+				"type": "function"
+			},
+			{
+				"inputs": [],
+				"name": "setDappsStakingRewardsDest",
 				"outputs": [],
 				"stateMutability": "nonpayable",
 				"type": "function"
@@ -1091,6 +1124,25 @@
 					}
 				],
 				"name": "userClaimedSlices",
+				"outputs": [
+					{
+						"internalType": "uint256",
+						"name": "",
+						"type": "uint256"
+					}
+				],
+				"stateMutability": "view",
+				"type": "function"
+			},
+			{
+				"inputs": [
+					{
+						"internalType": "address",
+						"name": "_user",
+						"type": "address"
+					}
+				],
+				"name": "userTotalRewards",
 				"outputs": [
 					{
 						"internalType": "uint256",
@@ -1379,19 +1431,19 @@
 			]
 		},
 		"src/ALGMVesting.sol": {
-			"keccak256": "0x4f2a71bd7901381e5925aa329181635dac9e9c89f738fdc1eaf307e22cab0b9b",
+			"keccak256": "0x175fc4704e7d3e68f44699b798d17233662114290bb3f3c18843489d5ec4f7f5",
 			"license": "MIT",
 			"urls": [
-				"bzz-raw://f2ace9029ab486086d93d40c146caecf052e86c11e26bdd0692752aa7c974c3c",
-				"dweb:/ipfs/QmUWyUZD65XKHdLbkQfJs1rzV2JeeNzCuhNhBqzDCb3jWg"
+				"bzz-raw://5795d5f02dd0befe019dc06e53d996c5f54212321c455c42d90e8ecfbc5cba90",
+				"dweb:/ipfs/QmTuSnizSXa7Tb6D7cwYbCrVuhjTJcp6Y6wn6toguuFip7"
 			]
 		},
 		"src/LiquidCrowdloan.sol": {
-			"keccak256": "0x6865a235652b0dd9ea1105c21d7a445eb03750834c1a61a818e029f58d780f31",
+			"keccak256": "0xfb7ebc0f2d58612984ca604a90a3c8ba82e61d3731f6073aba03b0f31fbbb8a4",
 			"license": "MIT",
 			"urls": [
-				"bzz-raw://4d9d0c34cb744891c1354a3ef0ae1fb2bbe4434b0cf7fba0395759b244c7f32e",
-				"dweb:/ipfs/QmXvxjfqbs7xae4W2FUNW5Qc4WvvFftSGZqZ34HZB6GeoC"
+				"bzz-raw://86a886061f216c84498bc29ced6fee61e384788b353a068ce144b02d35c4572a",
+				"dweb:/ipfs/QmQNyRLKP3BK3Wx8f7Z22bc7LuojMbELtspGM8bAhnmVGo"
 			]
 		},
 		"src/interfaces/DappsStaking.sol": {

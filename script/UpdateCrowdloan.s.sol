@@ -15,8 +15,8 @@ contract UpdateCrowdloan is Script {
         uint256 deployerPrivateKey = vm.envUint("PRIVATE_KEY");
         vm.startBroadcast(deployerPrivateKey);
 
-        admin = ProxyAdmin(0x3E9c426d400754F967c8c807c136C50323193D60);
-        proxy = TransparentUpgradeableProxy(payable(0x59d3313feaa20555d84d6fBAb4652D267BE2a552));
+        admin = ProxyAdmin(0x558625fe3f28370BBCfff98350c09F555219622C);
+        proxy = TransparentUpgradeableProxy(payable(0x5dc39BbD69d1B2173aB8eAB6e2C5774BFBF5fEa3));
 
         // new implementation
         crowdloanNewImpl = new LiquidCrowdloan();

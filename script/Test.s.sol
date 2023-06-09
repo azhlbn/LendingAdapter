@@ -3,46 +3,38 @@ pragma solidity ^0.8.4;
 
 import "forge-std/Script.sol";
 import "../lib/openzeppelin-contracts/contracts/token/ERC20/ERC20.sol";
-
-interface IL {
-    function getStakers() external view returns (address[] memory);
-}
-
-interface IT {
-    function balanceOf(address) external view returns (uint256);
-}
+import "../src/Sio2AdapterData.sol";
 
 contract TestScript is Script {
-    IL liquid = IL(0x70d264472327B67898c919809A9dc4759B6c0f27);
-    IT token = IT(0xE511ED88575C57767BAfb72BfD10775413E3F2b0);
+    Sio2AdapterData data = Sio2AdapterData(0x01Daa46901103aED46F86d8be5376c3e12E8bd8b);
+    address user = 0x7ECD92b9835E0096880bF6bA778d9eA40d1338B5;
 
     function run() public {
         uint256 signerPk = vm.envUint("PRIVATE_KEY");
         address signer = vm.addr(signerPk);
+
+        uint256[] memory before = new uint256[](3);
+        uint256[] memory later = new uint256[](3);
         
         vm.startBroadcast(signerPk);
+    
+        (before, later) = data.borrowRepayShift(
+            user,
+            1e16,
+            "BUSD",
+            true
+        );
 
-        address[] memory stakers = liquid.getStakers();
+        console.log("before:");
+        console.log("borrow available:", before[0]);
+        console.log("borrow limit used:", before[1]);
+        console.log("hf:", before[2]);
+        console.log("later:");
+        console.log("borrow available:", later[0]);
+        console.log("borrow limit used:", later[1]);
+        console.log("hf:", later[2]);
+        console.log("balance is:", signer.balance);
 
-        uint256 maxBalance;
-        address magnate;
-        uint256 counter;
-
-        console.log(counter);
-
-        for (uint256 i; i < stakers.length; i++) {
-            uint256 bal = token.balanceOf(stakers[i]);
-            if (bal > maxBalance) {
-                magnate = stakers[i];
-                maxBalance = bal;
-            }
-
-            console.log(counter);
-        }
-
-        console.log("Magnate is:", magnate);
-        console.log("His balance if:", maxBalance);
-
-        vm.stopBroadcast;
-    }
+        vm.stopBroadcast();
+    }   
 }
