@@ -10,6 +10,7 @@ import "./interfaces/ISio2LendingPool.sol";
 import "./interfaces/ISio2PriceOracle.sol";
 import "./interfaces/ISio2IncentivesController.sol";
 import "./interfaces/IAdaptersDistributor.sol";
+import "./interfaces/IWASTR.sol";
 import "./Sio2AdapterAssetManager.sol";
 
 contract Sio2Adapter is
@@ -71,7 +72,8 @@ contract Sio2Adapter is
 
     uint256 public liquidationPenalty;
     string public utilityName = "Sio2_Adapter";
-    IAdaptersDistributor public adaptersDistributor = IAdaptersDistributor(0x294Bb6b8e692543f373383A84A1f296D3C297aEf);
+    
+    IWASTR private constant WASTR = IWASTR(0xAeaaf0e2c81Af264101B9129C00F4440cCF0F720);
 
     //Events
     event Supply(address indexed user, uint256 indexed amount);
@@ -104,10 +106,10 @@ contract Sio2Adapter is
     event RemoveUser(address indexed user);
     event UpdateLastSTokenBalance(address indexed who, uint256 currentBalance);
 
-    // /// @custom:oz-upgrades-unsafe-allow constructor
-    // constructor() {
-    //     _disableInitializers();
-    // }
+    /// @custom:oz-upgrades-unsafe-allow constructor
+    constructor() {
+        _disableInitializers();
+    }
 
     function initialize(
         ISio2LendingPool _pool,
@@ -132,8 +134,6 @@ contract Sio2Adapter is
         (collateralLT, liquidationPenalty, collateralLTV) = assetManager.getAssetParameters(
             address(nastr)
         ); // set collateral params
-        utilityName = "Sio2_Adapter";
-        adaptersDistributor = IAdaptersDistributor(0x294Bb6b8e692543f373383A84A1f296D3C297aEf);
         setMaxAmountToBorrow(15); // set the max amount of borrowed assets
 
         _updateLastSTokenBalance();
@@ -143,6 +143,10 @@ contract Sio2Adapter is
         _updates(_user);
         _;
         _updateLastSTokenBalance();
+    }
+
+    receive() external payable {
+        require(msg.sender == address(WASTR), "Transfer ASTR to adapter allowed only for WASTR");
     }
 
     // @notice Supply nASTR tokens as collateral
@@ -197,7 +201,7 @@ contract Sio2Adapter is
 
         // check ltv condition in case of user's call
         if (msg.sender == _user) {
-            (, uint256 availableColToWithdraw) = availableCollateralUSD(_user);
+            (, uint256 availableColToWithdraw) = assetManager.availableCollateralUSD(_user);
             require(
                 // user can't withdraw collateral if his debt is too large
                 availableColToWithdraw >= toUSD(address(nastr), _amount),
@@ -244,7 +248,7 @@ contract Sio2Adapter is
         (, , address assetAddr, , , , , , , ) = assetManager.assetInfo(
             _assetName
         );
-        (uint256 availableColToBorrow, ) = availableCollateralUSD(msg.sender);
+        (uint256 availableColToBorrow, ) = assetManager.availableCollateralUSD(msg.sender);
 
         require(
             toUSD(assetAddr, _amount) <= availableColToBorrow,
@@ -283,7 +287,12 @@ contract Sio2Adapter is
         // update bToken's last balance
         assetManager.updateLastBTokenBalance(_assetName);
 
-        IERC20Upgradeable(assetAddr).safeTransfer(msg.sender, nativeAmount);
+        if (assetAddr == address(WASTR)) {
+            WASTR.withdraw(nativeAmount);
+            payable(msg.sender).sendValue(nativeAmount);
+        } else {
+            IERC20Upgradeable(assetAddr).safeTransfer(msg.sender, nativeAmount);
+        }
 
         emit Borrow(msg.sender, _assetName, _amount);
     }
@@ -295,7 +304,7 @@ contract Sio2Adapter is
     function repayPart(
         string memory _assetName,
         uint256 _amount
-    ) external update(msg.sender) nonReentrant {
+    ) external payable update(msg.sender) nonReentrant {
         _repay(_assetName, _amount, msg.sender);
     }
 
@@ -303,7 +312,7 @@ contract Sio2Adapter is
     // @param _assetName Asset name
     function repayFull(
         string memory _assetName
-    ) external update(msg.sender) nonReentrant {
+    ) external payable update(msg.sender) nonReentrant {
         (, string memory assetName, , , , , , , , ) = assetManager.assetInfo(
             _assetName
         );
@@ -400,7 +409,7 @@ contract Sio2Adapter is
     function getLiquidationParameters(
         address _user
     ) public update(_user) returns (uint256 hf, uint256 debtUSD) {
-        debtUSD = calcEstimateUserDebtUSD(_user);
+        debtUSD = assetManager.calcEstimateUserDebtUSD(_user);
         require(debtUSD > 0, "User has no debts");
         uint256 collateralUSD = toUSD(
             address(nastr),
@@ -534,10 +543,15 @@ contract Sio2Adapter is
         );
         IERC20Upgradeable asset = IERC20Upgradeable(assetAddress);
 
-        uint256 userBal = asset.balanceOf(msg.sender);
+        uint256 userBal;
+        if (assetAddress == address(WASTR)) {
+            userBal = msg.sender.balance;
+        } else {
+            userBal = asset.balanceOf(msg.sender);
 
-        // add missing zeros for correct calculations if needed
-        userBal = assetManager.to18DecFormat(assetAddress, userBal);
+            // add missing zeros for correct calculations if needed
+            userBal = assetManager.to18DecFormat(assetAddress, userBal);
+        }
 
         // check balance of user or liquidator
         require(
@@ -553,8 +567,16 @@ contract Sio2Adapter is
 
         uint256 nativeAmount = assetManager.toNativeDecFormat(assetAddress, _amount);
 
-        // take borrowed asset from user or liquidator and reduce user's debt
-        asset.safeTransferFrom(msg.sender, address(this), nativeAmount);
+        if (assetAddress == address(WASTR)) {
+            require(msg.value >= _amount, "ASTR amount must >= msg.value");
+            // return diff back to user
+            if (msg.value > _amount) payable(msg.sender).sendValue(msg.value - _amount);
+            // change astr to wastr
+            WASTR.deposit{value: _amount}();
+        } else {
+            // take borrowed asset from user or liquidator and reduce user's debt
+            asset.safeTransferFrom(msg.sender, address(this), nativeAmount);
+        }
 
         debts[_user][_assetName] -= _amount;
         assetManager.decreaseAssetsTotalBorrowed(_assetName, _amount);
@@ -592,7 +614,7 @@ contract Sio2Adapter is
     }
 
     // @notice Collect accumulated income of sio2 rewards
-    function _harvestRewards(uint256 _pendingRewards) private {
+    function _harvestRewards(uint256 _pendingRewards) public {
         address[] memory bTokens = assetManager.getBTokens();
         string[] memory assets = assetManager.getAssetsNames();
         // receiving rewards from incentives controller
@@ -831,104 +853,6 @@ contract Sio2Adapter is
         emit RemoveUser(msg.sender);
     }
 
-    // @notice Check user collateral amount without state updates
-    // @param _userAddr User address
-    // @return User's collateral value in USD
-    function calcEstimateUserCollateralUSD(
-        address _userAddr
-    ) public view returns (uint256 coll) {
-        User memory user = userInfo[_userAddr];
-        // get est collateral accRPS
-        uint256 estAccSTokensPerShare = accSTokensPerShare;
-        uint256 estUserCollateral = user.collateralAmount;
-
-        if (snastrToken.balanceOf(address(this)) > lastSTokenBalance) {
-            estAccSTokensPerShare +=
-                ((snastrToken.balanceOf(address(this)) - lastSTokenBalance) *
-                    REWARDS_PRECISION) /
-                totalSupply;
-        }
-
-        estUserCollateral +=
-            (estUserCollateral * estAccSTokensPerShare) /
-            REWARDS_PRECISION -
-            user.sTokensIncomeDebt;
-
-        coll = toUSD(address(nastr), estUserCollateral);
-    }
-
-    // @notice Check user debt amount without state updates
-    // @param _userAddr User address
-    // @return User's debt value in USD
-    function calcEstimateUserDebtUSD(
-        address _userAddr
-    ) public view returns (uint256 debtUSD) {
-        User memory user = userInfo[_userAddr];
-        for (uint256 i; i < user.borrowedAssets.length; ) {
-            (
-                ,
-                string memory assetName,
-                address assetAddr,
-                address assetBTokenAddress,
-                ,
-                uint256 assetLastBTokenBalance,
-                uint256 assetTotalBorrowed,
-                ,
-                uint256 assetAccBTokensPerShare,
-
-            ) = assetManager.assetInfo(user.borrowedAssets[i]);
-
-            uint256 debt = debts[user.addr][assetName];
-            uint256 income;
-            uint256 estAccBTokenRPS = assetAccBTokensPerShare;
-
-            ERC20Upgradeable bToken = ERC20Upgradeable(assetBTokenAddress);
-
-            uint256 bTokenBal = bToken.balanceOf(address(this));
-
-            // add missing zeros for correct calculations
-            bTokenBal = assetManager.to18DecFormat(assetBTokenAddress, bTokenBal);
-
-            if (bTokenBal > assetLastBTokenBalance) {
-                income = bTokenBal - assetLastBTokenBalance;
-            }
-
-            if (assetTotalBorrowed > 0 && income > 0) {
-                estAccBTokenRPS +=
-                    (income * REWARDS_PRECISION) /
-                    assetTotalBorrowed;
-                debt +=
-                    (debt * estAccBTokenRPS) /
-                    REWARDS_PRECISION -
-                    userBTokensIncomeDebt[user.addr][assetName];
-            }
-
-            debtUSD += toUSD(assetAddr, debt);
-
-            unchecked {
-                ++i;
-            }
-        }
-    }
-
-    // @notice To get the available amount to borrow expressed in usd
-    // @param _userAddr User addresss
-    // @return toBorrow Amount of collateral in usd available to borrow
-    // @return toWithdraw Amount of collateral in usd available to withdraw
-    function availableCollateralUSD(
-        address _userAddr
-    ) public view returns (uint256 toBorrow, uint256 toWithdraw) {
-        if (userInfo[_userAddr].collateralAmount == 0) return (0, 0);
-        uint256 debt = calcEstimateUserDebtUSD(_userAddr);
-        uint256 userCollateral = calcEstimateUserCollateralUSD(_userAddr);
-        uint256 collateralAfterLTV = (userCollateral * collateralLTV) /
-            RISK_PARAMS_PRECISION;
-        if (collateralAfterLTV > debt) toBorrow = collateralAfterLTV - debt;
-        uint256 debtAfterLTV = (debt * RISK_PARAMS_PRECISION) / collateralLTV;
-        if (userCollateral > debtAfterLTV)
-            toWithdraw = userCollateral - debtAfterLTV;
-    }
-
     // @notice Convert tokens value to USD
     // @param _asset Asset address
     // @param _amount Amount of token with 18 decimals
@@ -951,6 +875,17 @@ contract Sio2Adapter is
     ) public view returns (uint256) {
         uint256 price = priceOracle.getAssetPrice(_asset);
         return (_amount * PRICE_PRECISION) / price;
+    }
+
+    // @notice Get share of n tokens in pool for user
+    // @param _user User's address
+    function calc(address _user) external view returns (uint256) {
+        return userInfo[_user].collateralAmount;
+    }
+
+    // @notice Disabled functionality to renounce ownership
+    function renounceOwnership() public override onlyOwner {
+        revert("It is not possible to renounce ownership");
     }
 
     // @notice Get user info

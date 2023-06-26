@@ -26,7 +26,7 @@ contract DeploySio2Adapter is Script {
         proxy = new TransparentUpgradeableProxy(address(implementationV1), address(admin), "");
         
         // wrap in ABI to support easier calls
-        wrappedProxyV1 = Sio2Adapter(address(proxy));
+        wrappedProxyV1 = Sio2Adapter(payable(address(proxy)));
         wrappedProxyV1.initialize(
             ISio2LendingPool(0x4df48B292C026f0340B60C582f58aa41E09fF0de),
             IERC20Upgradeable(0x6De33698e9e9b787e09d3Bd7771ef63557E148bb), //nASTR addr, but now its DAI for testing

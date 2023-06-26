@@ -39,7 +39,7 @@ contract Sio2AdapterAssetManager is Initializable, OwnableUpgradeable, Reentranc
         uint256 accBorrowedRewardsPerShare;
     }
 
-    IAdaptersDistributor public adaptersDistributor;
+    IAdaptersDistributor public constant ADAPTERS_DISTRIBUTOR = IAdaptersDistributor(0x294Bb6b8e692543f373383A84A1f296D3C297aEf);
 
     event AddAsset(address owner, string indexed assetName, address indexed assetAddress);
     event RemoveAsset(address owner, string indexed assetName);
@@ -47,10 +47,10 @@ contract Sio2AdapterAssetManager is Initializable, OwnableUpgradeable, Reentranc
     event UpdateBalSuccess(address user, string utilityName, uint256 amount);
     event UpdateBalError(address user, string utilityName, uint256 amount, string reason);
 
-    // /// @custom:oz-upgrades-unsafe-allow constructor
-    // constructor() {
-    //     _disableInitializers();
-    // }
+    /// @custom:oz-upgrades-unsafe-allow constructor
+    constructor() {
+        _disableInitializers();
+    }
 
     function initialize(
         ISio2LendingPool _pool,
@@ -63,7 +63,6 @@ contract Sio2AdapterAssetManager is Initializable, OwnableUpgradeable, Reentranc
         require(_snastr != address(0), "snASTR address cannot be zero");
 
         bTokens.push(_snastr);
-        adaptersDistributor = IAdaptersDistributor(0x294Bb6b8e692543f373383A84A1f296D3C297aEf);
 
         pool = _pool;
     }
@@ -80,7 +79,16 @@ contract Sio2AdapterAssetManager is Initializable, OwnableUpgradeable, Reentranc
         uint256 _rewardsWeight
     ) external onlyOwner {
         string memory _assetName = ERC20Upgradeable(_assetAddress).symbol();
-        
+        addAsset(_assetName, _assetAddress, _bToken, _rewardsWeight);
+    }
+
+    // @notice Allows owner to add new asset
+    function addAsset(
+        string memory _assetName,
+        address _assetAddress,
+        address _bToken,
+        uint256 _rewardsWeight
+    ) public onlyOwner {
         require(assetInfo[_assetName].addr == address(0), "Asset already added");
         require(keccak256(abi.encodePacked(_assetName)) != keccak256(""), "Empty asset name");
         require(!bTokenExist[_bToken], "Such bToken address already added");
@@ -178,7 +186,7 @@ contract Sio2AdapterAssetManager is Initializable, OwnableUpgradeable, Reentranc
         Sio2Adapter.User memory user = adapter.getUser(_user);
         uint256 nastrBalAfter = user.collateralAmount;
         try
-            adaptersDistributor.updateBalanceInAdapter(
+            ADAPTERS_DISTRIBUTOR.updateBalanceInAdapter(
                 "Sio2_Adapter",
                 _user,
                 nastrBalAfter
@@ -188,6 +196,95 @@ contract Sio2AdapterAssetManager is Initializable, OwnableUpgradeable, Reentranc
         } catch Error(string memory reason) {
             emit UpdateBalError(_user, "Sio2_Adapter", nastrBalAfter, reason);
         }
+    }
+
+    // @notice Check user collateral amount without state updates
+    // @param _userAddr User address
+    // @return User's collateral value in USD
+    function calcEstimateUserCollateralUSD(
+        address _userAddr
+    ) public view returns (uint256 coll) {
+        Sio2Adapter.User memory user = adapter.getUser(_userAddr);
+        // get est collateral accRPS
+        uint256 estAccSTokensPerShare = adapter.accSTokensPerShare();
+        uint256 estUserCollateral = user.collateralAmount;
+
+        IERC20Upgradeable snastr = IERC20Upgradeable(adapter.snastrToken());
+        if (snastr.balanceOf(address(this)) > adapter.lastSTokenBalance()) {
+            estAccSTokensPerShare +=
+                ((snastr.balanceOf(address(this)) - adapter.lastSTokenBalance()) *
+                    REWARDS_PRECISION) /
+                adapter.totalSupply();
+        }
+
+        estUserCollateral +=
+            (estUserCollateral * estAccSTokensPerShare) /
+            REWARDS_PRECISION -
+            user.sTokensIncomeDebt;
+
+        coll = adapter.toUSD(address(adapter.nastr()), estUserCollateral);
+    }
+
+    // @notice Check user debt amount without state updates
+    // @param _userAddr User address
+    // @return User's debt value in USD
+    function calcEstimateUserDebtUSD(
+        address _userAddr
+    ) public view returns (uint256 debtUSD) {
+        Sio2Adapter.User memory user = adapter.getUser(_userAddr);
+        for (uint256 i; i < user.borrowedAssets.length; ) {
+            Asset memory asset = assetInfo[user.borrowedAssets[i]];
+
+            uint256 debt = adapter.debts(user.addr, asset.name);
+            uint256 income;
+            uint256 estAccBTokenRPS = asset.accBTokensPerShare;
+
+            ERC20Upgradeable bToken = ERC20Upgradeable(asset.bTokenAddress);
+
+            uint256 bTokenBal = bToken.balanceOf(address(this));
+
+            // add missing zeros for correct calculations
+            bTokenBal = to18DecFormat(asset.bTokenAddress, bTokenBal);
+
+            if (bTokenBal > asset.lastBTokenBalance) {
+                income = bTokenBal - asset.lastBTokenBalance;
+            }
+
+            if (asset.totalBorrowed > 0 && income > 0) {
+                estAccBTokenRPS +=
+                    (income * REWARDS_PRECISION) /
+                    asset.totalBorrowed;
+                debt +=
+                    (debt * estAccBTokenRPS) /
+                    REWARDS_PRECISION -
+                    adapter.userBTokensIncomeDebt(user.addr, asset.name);
+            }
+
+            debtUSD += adapter.toUSD(asset.addr, debt);
+
+            unchecked {
+                ++i;
+            }
+        }
+    }
+
+    // @notice To get the available amount to borrow expressed in usd
+    // @param _userAddr User addresss
+    // @return toBorrow Amount of collateral in usd available to borrow
+    // @return toWithdraw Amount of collateral in usd available to withdraw
+    function availableCollateralUSD(
+        address _userAddr
+    ) public view returns (uint256 toBorrow, uint256 toWithdraw) {
+        Sio2Adapter.User memory user = adapter.getUser(_userAddr);
+        if (user.collateralAmount == 0) return (0, 0);
+        uint256 debt = calcEstimateUserDebtUSD(_userAddr);
+        uint256 userCollateral = calcEstimateUserCollateralUSD(_userAddr);
+        uint256 collateralAfterLTV = (userCollateral * adapter.collateralLTV()) /
+            1e4; // 1e4 is RISK_PARAMS_PRECISION
+        if (collateralAfterLTV > debt) toBorrow = collateralAfterLTV - debt;
+        uint256 debtAfterLTV = (debt * 1e4) / adapter.collateralLTV();
+        if (userCollateral > debtAfterLTV)
+            toWithdraw = userCollateral - debtAfterLTV;
     }
 
     function getBTokens() external view returns (address[] memory) {
@@ -209,7 +306,7 @@ contract Sio2AdapterAssetManager is Initializable, OwnableUpgradeable, Reentranc
     function getAvailableTokensToBorrow(
         address _user
     ) external view returns (uint256[] memory) {
-        (uint256 availableColForBorrowUSD,) = adapter.availableCollateralUSD(_user);
+        (uint256 availableColForBorrowUSD,) = availableCollateralUSD(_user);
 
         uint256 assetsAmount = assets.length;
 
@@ -289,9 +386,5 @@ contract Sio2AdapterAssetManager is Initializable, OwnableUpgradeable, Reentranc
 
     function getAssetInfo(string memory _assetName) external view returns (Asset memory) {
         return assetInfo[_assetName];
-    }
-
-    /* to remove ❗️ */function set() public {
-        adaptersDistributor = IAdaptersDistributor(0x294Bb6b8e692543f373383A84A1f296D3C297aEf);
     }
 }

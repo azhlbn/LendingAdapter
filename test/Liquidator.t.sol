@@ -2,8 +2,6 @@
 pragma solidity ^0.8.4;
 
 import "forge-std/Test.sol";
-import "forge-std/stdlib.sol";
-import "forge-std/Vm.sol";
 import "@openzeppelin-upgradeable/contracts/token/ERC20/ERC20Upgradeable.sol";
 import "../src/Sio2Adapter.sol";
 import "../src/Sio2AdapterData.sol";
@@ -18,7 +16,6 @@ import "../src/interfaces/IArthswapPair.sol";
 contract LiquidatorTest is Test {
     using stdStorage for StdStorage;
 
-    StdStorage stdstore;
     Sio2Adapter adapter;
     Sio2AdapterAssetManager assetManager;
     Liquidator liquidator;
@@ -86,11 +83,11 @@ contract LiquidatorTest is Test {
 
         assetManager.setAdapter(adapter);
         data = new Sio2AdapterData();
-        data.initialize(adapter, assetManager);
+        data.initialize(adapter, assetManager, pool);
 
         liquidator = new Liquidator(
             ISio2LendingPool(0x4df48B292C026f0340B60C582f58aa41E09fF0de),
-            Sio2Adapter(address(adapter)),
+            Sio2Adapter(payable(address(adapter))),
             Sio2AdapterAssetManager(address(assetManager)),
             ISio2LendingPoolAddressesProvider(0x2660e0668dd5A18Ed092D5351FfF7B0A403f9721),
             data,
@@ -298,7 +295,7 @@ contract LiquidatorTest is Test {
         uint256 hf = data.estimateHF(user);
         console.log("initial hf is:", hf);
 
-        (uint256 availableToBorrowUSD, ) = adapter.availableCollateralUSD(user);
+        (uint256 availableToBorrowUSD, ) = assetManager.availableCollateralUSD(user);
         console.log("available to borrow usd:", availableToBorrowUSD);
 
         uint256 wethAmountToBorrow = adapter.fromUSD(weth, availableToBorrowUSD);
@@ -310,10 +307,10 @@ contract LiquidatorTest is Test {
         console.log("hf after borrow busd:", data.estimateHF(user));
 
         // set LT
-        stdstore
-            .target(address(adapter))
-            .sig(adapter.collateralLT())
-            .checked_write(adapter.collateralLT() * 80 / 100);
+        // stdstore
+        //     .target(address(adapter))
+        //     .sig(adapter.collateralLT())
+        //     .checked_write(adapter.collateralLT() * 80 / 100);
 
         console.log("hf after lt setting:", data.estimateHF(user));
 

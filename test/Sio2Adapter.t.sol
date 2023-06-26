@@ -4,6 +4,7 @@ pragma solidity ^0.8.4;
 import "forge-std/Test.sol";
 import "../src/Sio2Adapter.sol";
 import "../src/Sio2AdapterAssetManager.sol";
+import "../src/interfaces/ISio2LendingPool.sol";
 import "../src/Liquidator.sol";
 import "./mocs/MockSio2LendingPool.sol";
 import "./mocs/MockERC20.sol";
@@ -121,7 +122,7 @@ contract Sio2AdapterTest is Test {
 
         assetManager.setAdapter(adapter);
         data = new Sio2AdapterData();
-        data.initialize(adapter, assetManager);
+        data.initialize(adapter, assetManager, ISio2LendingPool(address(pool)));
 
         user = vm.addr(1); // convert private key to address
         liquidator = vm.addr(2);
@@ -187,7 +188,7 @@ contract Sio2AdapterTest is Test {
         vm.warp(1 days);
         adapter.borrow("BUSD", 1 ether);
         adapter.borrow("DOT", 1 ether);
-        uint256 debt = adapter.calcEstimateUserDebtUSD(user);
+        uint256 debt = assetManager.calcEstimateUserDebtUSD(user);
         assertEq(busd.balanceOf(user), 2 ether);
         assertGt(dot.balanceOf(user), 0);
         assertGt(debt, 0);
@@ -324,7 +325,7 @@ contract Sio2AdapterTest is Test {
         vm.expectRevert("User has no debts");
         data.estimateHF(user);
 
-        (uint256 availableToBorrow, ) = adapter.availableCollateralUSD(user);
+        (uint256 availableToBorrow, ) = assetManager.availableCollateralUSD(user);
 
         adapter.borrow("BUSD", availableToBorrow);
 
@@ -356,7 +357,7 @@ contract Sio2AdapterTest is Test {
         vm.prank(user);
         adapter.supply(1 ether);
 
-        (, uint256 availableColToWithdraw) = adapter.availableCollateralUSD(
+        (, uint256 availableColToWithdraw) = assetManager.availableCollateralUSD(
             user
         );
 

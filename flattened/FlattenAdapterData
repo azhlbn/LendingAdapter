@@ -379,874 +379,6 @@ abstract contract Initializable {
     }
 }
 
-// OpenZeppelin Contracts (last updated v4.7.0) (access/Ownable.sol)
-
-// OpenZeppelin Contracts v4.4.1 (utils/Context.sol)
-
-/**
- * @dev Provides information about the current execution context, including the
- * sender of the transaction and its data. While these are generally available
- * via msg.sender and msg.data, they should not be accessed in such a direct
- * manner, since when dealing with meta-transactions the account sending and
- * paying for execution may not be the actual sender (as far as an application
- * is concerned).
- *
- * This contract is only required for intermediate, library-like contracts.
- */
-abstract contract ContextUpgradeable is Initializable {
-    function __Context_init() internal onlyInitializing {
-    }
-
-    function __Context_init_unchained() internal onlyInitializing {
-    }
-    function _msgSender() internal view virtual returns (address) {
-        return msg.sender;
-    }
-
-    function _msgData() internal view virtual returns (bytes calldata) {
-        return msg.data;
-    }
-
-    /**
-     * @dev This empty reserved space is put in place to allow future versions to add new
-     * variables without shifting down storage in the inheritance chain.
-     * See https://docs.openzeppelin.com/contracts/4.x/upgradeable#storage_gaps
-     */
-    uint256[50] private __gap;
-}
-
-/**
- * @dev Contract module which provides a basic access control mechanism, where
- * there is an account (an owner) that can be granted exclusive access to
- * specific functions.
- *
- * By default, the owner account will be the one that deploys the contract. This
- * can later be changed with {transferOwnership}.
- *
- * This module is used through inheritance. It will make available the modifier
- * `onlyOwner`, which can be applied to your functions to restrict their use to
- * the owner.
- */
-abstract contract OwnableUpgradeable is Initializable, ContextUpgradeable {
-    address private _owner;
-
-    event OwnershipTransferred(address indexed previousOwner, address indexed newOwner);
-
-    /**
-     * @dev Initializes the contract setting the deployer as the initial owner.
-     */
-    function __Ownable_init() internal onlyInitializing {
-        __Ownable_init_unchained();
-    }
-
-    function __Ownable_init_unchained() internal onlyInitializing {
-        _transferOwnership(_msgSender());
-    }
-
-    /**
-     * @dev Throws if called by any account other than the owner.
-     */
-    modifier onlyOwner() {
-        _checkOwner();
-        _;
-    }
-
-    /**
-     * @dev Returns the address of the current owner.
-     */
-    function owner() public view virtual returns (address) {
-        return _owner;
-    }
-
-    /**
-     * @dev Throws if the sender is not the owner.
-     */
-    function _checkOwner() internal view virtual {
-        require(owner() == _msgSender(), "Ownable: caller is not the owner");
-    }
-
-    /**
-     * @dev Leaves the contract without owner. It will not be possible to call
-     * `onlyOwner` functions anymore. Can only be called by the current owner.
-     *
-     * NOTE: Renouncing ownership will leave the contract without an owner,
-     * thereby removing any functionality that is only available to the owner.
-     */
-    function renounceOwnership() public virtual onlyOwner {
-        _transferOwnership(address(0));
-    }
-
-    /**
-     * @dev Transfers ownership of the contract to a new account (`newOwner`).
-     * Can only be called by the current owner.
-     */
-    function transferOwnership(address newOwner) public virtual onlyOwner {
-        require(newOwner != address(0), "Ownable: new owner is the zero address");
-        _transferOwnership(newOwner);
-    }
-
-    /**
-     * @dev Transfers ownership of the contract to a new account (`newOwner`).
-     * Internal function without access restriction.
-     */
-    function _transferOwnership(address newOwner) internal virtual {
-        address oldOwner = _owner;
-        _owner = newOwner;
-        emit OwnershipTransferred(oldOwner, newOwner);
-    }
-
-    /**
-     * @dev This empty reserved space is put in place to allow future versions to add new
-     * variables without shifting down storage in the inheritance chain.
-     * See https://docs.openzeppelin.com/contracts/4.x/upgradeable#storage_gaps
-     */
-    uint256[49] private __gap;
-}
-
-// OpenZeppelin Contracts (last updated v4.8.0) (token/ERC20/utils/SafeERC20.sol)
-
-// OpenZeppelin Contracts (last updated v4.6.0) (token/ERC20/IERC20.sol)
-
-/**
- * @dev Interface of the ERC20 standard as defined in the EIP.
- */
-interface IERC20Upgradeable {
-    /**
-     * @dev Emitted when `value` tokens are moved from one account (`from`) to
-     * another (`to`).
-     *
-     * Note that `value` may be zero.
-     */
-    event Transfer(address indexed from, address indexed to, uint256 value);
-
-    /**
-     * @dev Emitted when the allowance of a `spender` for an `owner` is set by
-     * a call to {approve}. `value` is the new allowance.
-     */
-    event Approval(address indexed owner, address indexed spender, uint256 value);
-
-    /**
-     * @dev Returns the amount of tokens in existence.
-     */
-    function totalSupply() external view returns (uint256);
-
-    /**
-     * @dev Returns the amount of tokens owned by `account`.
-     */
-    function balanceOf(address account) external view returns (uint256);
-
-    /**
-     * @dev Moves `amount` tokens from the caller's account to `to`.
-     *
-     * Returns a boolean value indicating whether the operation succeeded.
-     *
-     * Emits a {Transfer} event.
-     */
-    function transfer(address to, uint256 amount) external returns (bool);
-
-    /**
-     * @dev Returns the remaining number of tokens that `spender` will be
-     * allowed to spend on behalf of `owner` through {transferFrom}. This is
-     * zero by default.
-     *
-     * This value changes when {approve} or {transferFrom} are called.
-     */
-    function allowance(address owner, address spender) external view returns (uint256);
-
-    /**
-     * @dev Sets `amount` as the allowance of `spender` over the caller's tokens.
-     *
-     * Returns a boolean value indicating whether the operation succeeded.
-     *
-     * IMPORTANT: Beware that changing an allowance with this method brings the risk
-     * that someone may use both the old and the new allowance by unfortunate
-     * transaction ordering. One possible solution to mitigate this race
-     * condition is to first reduce the spender's allowance to 0 and set the
-     * desired value afterwards:
-     * https://github.com/ethereum/EIPs/issues/20#issuecomment-263524729
-     *
-     * Emits an {Approval} event.
-     */
-    function approve(address spender, uint256 amount) external returns (bool);
-
-    /**
-     * @dev Moves `amount` tokens from `from` to `to` using the
-     * allowance mechanism. `amount` is then deducted from the caller's
-     * allowance.
-     *
-     * Returns a boolean value indicating whether the operation succeeded.
-     *
-     * Emits a {Transfer} event.
-     */
-    function transferFrom(
-        address from,
-        address to,
-        uint256 amount
-    ) external returns (bool);
-}
-
-// OpenZeppelin Contracts v4.4.1 (token/ERC20/extensions/draft-IERC20Permit.sol)
-
-/**
- * @dev Interface of the ERC20 Permit extension allowing approvals to be made via signatures, as defined in
- * https://eips.ethereum.org/EIPS/eip-2612[EIP-2612].
- *
- * Adds the {permit} method, which can be used to change an account's ERC20 allowance (see {IERC20-allowance}) by
- * presenting a message signed by the account. By not relying on {IERC20-approve}, the token holder account doesn't
- * need to send a transaction, and thus is not required to hold Ether at all.
- */
-interface IERC20PermitUpgradeable {
-    /**
-     * @dev Sets `value` as the allowance of `spender` over ``owner``'s tokens,
-     * given ``owner``'s signed approval.
-     *
-     * IMPORTANT: The same issues {IERC20-approve} has related to transaction
-     * ordering also apply here.
-     *
-     * Emits an {Approval} event.
-     *
-     * Requirements:
-     *
-     * - `spender` cannot be the zero address.
-     * - `deadline` must be a timestamp in the future.
-     * - `v`, `r` and `s` must be a valid `secp256k1` signature from `owner`
-     * over the EIP712-formatted function arguments.
-     * - the signature must use ``owner``'s current nonce (see {nonces}).
-     *
-     * For more information on the signature format, see the
-     * https://eips.ethereum.org/EIPS/eip-2612#specification[relevant EIP
-     * section].
-     */
-    function permit(
-        address owner,
-        address spender,
-        uint256 value,
-        uint256 deadline,
-        uint8 v,
-        bytes32 r,
-        bytes32 s
-    ) external;
-
-    /**
-     * @dev Returns the current nonce for `owner`. This value must be
-     * included whenever a signature is generated for {permit}.
-     *
-     * Every successful call to {permit} increases ``owner``'s nonce by one. This
-     * prevents a signature from being used multiple times.
-     */
-    function nonces(address owner) external view returns (uint256);
-
-    /**
-     * @dev Returns the domain separator used in the encoding of the signature for {permit}, as defined by {EIP712}.
-     */
-    // solhint-disable-next-line func-name-mixedcase
-    function DOMAIN_SEPARATOR() external view returns (bytes32);
-}
-
-/**
- * @title SafeERC20
- * @dev Wrappers around ERC20 operations that throw on failure (when the token
- * contract returns false). Tokens that return no value (and instead revert or
- * throw on failure) are also supported, non-reverting calls are assumed to be
- * successful.
- * To use this library you can add a `using SafeERC20 for IERC20;` statement to your contract,
- * which allows you to call the safe operations as `token.safeTransfer(...)`, etc.
- */
-library SafeERC20Upgradeable {
-    using AddressUpgradeable for address;
-
-    function safeTransfer(
-        IERC20Upgradeable token,
-        address to,
-        uint256 value
-    ) internal {
-        _callOptionalReturn(token, abi.encodeWithSelector(token.transfer.selector, to, value));
-    }
-
-    function safeTransferFrom(
-        IERC20Upgradeable token,
-        address from,
-        address to,
-        uint256 value
-    ) internal {
-        _callOptionalReturn(token, abi.encodeWithSelector(token.transferFrom.selector, from, to, value));
-    }
-
-    /**
-     * @dev Deprecated. This function has issues similar to the ones found in
-     * {IERC20-approve}, and its usage is discouraged.
-     *
-     * Whenever possible, use {safeIncreaseAllowance} and
-     * {safeDecreaseAllowance} instead.
-     */
-    function safeApprove(
-        IERC20Upgradeable token,
-        address spender,
-        uint256 value
-    ) internal {
-        // safeApprove should only be called when setting an initial allowance,
-        // or when resetting it to zero. To increase and decrease it, use
-        // 'safeIncreaseAllowance' and 'safeDecreaseAllowance'
-        require(
-            (value == 0) || (token.allowance(address(this), spender) == 0),
-            "SafeERC20: approve from non-zero to non-zero allowance"
-        );
-        _callOptionalReturn(token, abi.encodeWithSelector(token.approve.selector, spender, value));
-    }
-
-    function safeIncreaseAllowance(
-        IERC20Upgradeable token,
-        address spender,
-        uint256 value
-    ) internal {
-        uint256 newAllowance = token.allowance(address(this), spender) + value;
-        _callOptionalReturn(token, abi.encodeWithSelector(token.approve.selector, spender, newAllowance));
-    }
-
-    function safeDecreaseAllowance(
-        IERC20Upgradeable token,
-        address spender,
-        uint256 value
-    ) internal {
-        unchecked {
-            uint256 oldAllowance = token.allowance(address(this), spender);
-            require(oldAllowance >= value, "SafeERC20: decreased allowance below zero");
-            uint256 newAllowance = oldAllowance - value;
-            _callOptionalReturn(token, abi.encodeWithSelector(token.approve.selector, spender, newAllowance));
-        }
-    }
-
-    function safePermit(
-        IERC20PermitUpgradeable token,
-        address owner,
-        address spender,
-        uint256 value,
-        uint256 deadline,
-        uint8 v,
-        bytes32 r,
-        bytes32 s
-    ) internal {
-        uint256 nonceBefore = token.nonces(owner);
-        token.permit(owner, spender, value, deadline, v, r, s);
-        uint256 nonceAfter = token.nonces(owner);
-        require(nonceAfter == nonceBefore + 1, "SafeERC20: permit did not succeed");
-    }
-
-    /**
-     * @dev Imitates a Solidity high-level call (i.e. a regular function call to a contract), relaxing the requirement
-     * on the return value: the return value is optional (but if data is returned, it must not be false).
-     * @param token The token targeted by the call.
-     * @param data The call data (encoded using abi.encode or one of its variants).
-     */
-    function _callOptionalReturn(IERC20Upgradeable token, bytes memory data) private {
-        // We need to perform a low level call here, to bypass Solidity's return data size checking mechanism, since
-        // we're implementing it ourselves. We use {Address-functionCall} to perform this call, which verifies that
-        // the target address contains contract code and also asserts for success in the low-level call.
-
-        bytes memory returndata = address(token).functionCall(data, "SafeERC20: low-level call failed");
-        if (returndata.length > 0) {
-            // Return data is optional
-            require(abi.decode(returndata, (bool)), "SafeERC20: ERC20 operation did not succeed");
-        }
-    }
-}
-
-// OpenZeppelin Contracts (last updated v4.8.0) (token/ERC20/ERC20.sol)
-
-// OpenZeppelin Contracts v4.4.1 (token/ERC20/extensions/IERC20Metadata.sol)
-
-/**
- * @dev Interface for the optional metadata functions from the ERC20 standard.
- *
- * _Available since v4.1._
- */
-interface IERC20MetadataUpgradeable is IERC20Upgradeable {
-    /**
-     * @dev Returns the name of the token.
-     */
-    function name() external view returns (string memory);
-
-    /**
-     * @dev Returns the symbol of the token.
-     */
-    function symbol() external view returns (string memory);
-
-    /**
-     * @dev Returns the decimals places of the token.
-     */
-    function decimals() external view returns (uint8);
-}
-
-/**
- * @dev Implementation of the {IERC20} interface.
- *
- * This implementation is agnostic to the way tokens are created. This means
- * that a supply mechanism has to be added in a derived contract using {_mint}.
- * For a generic mechanism see {ERC20PresetMinterPauser}.
- *
- * TIP: For a detailed writeup see our guide
- * https://forum.openzeppelin.com/t/how-to-implement-erc20-supply-mechanisms/226[How
- * to implement supply mechanisms].
- *
- * We have followed general OpenZeppelin Contracts guidelines: functions revert
- * instead returning `false` on failure. This behavior is nonetheless
- * conventional and does not conflict with the expectations of ERC20
- * applications.
- *
- * Additionally, an {Approval} event is emitted on calls to {transferFrom}.
- * This allows applications to reconstruct the allowance for all accounts just
- * by listening to said events. Other implementations of the EIP may not emit
- * these events, as it isn't required by the specification.
- *
- * Finally, the non-standard {decreaseAllowance} and {increaseAllowance}
- * functions have been added to mitigate the well-known issues around setting
- * allowances. See {IERC20-approve}.
- */
-contract ERC20Upgradeable is Initializable, ContextUpgradeable, IERC20Upgradeable, IERC20MetadataUpgradeable {
-    mapping(address => uint256) private _balances;
-
-    mapping(address => mapping(address => uint256)) private _allowances;
-
-    uint256 private _totalSupply;
-
-    string private _name;
-    string private _symbol;
-
-    /**
-     * @dev Sets the values for {name} and {symbol}.
-     *
-     * The default value of {decimals} is 18. To select a different value for
-     * {decimals} you should overload it.
-     *
-     * All two of these values are immutable: they can only be set once during
-     * construction.
-     */
-    function __ERC20_init(string memory name_, string memory symbol_) internal onlyInitializing {
-        __ERC20_init_unchained(name_, symbol_);
-    }
-
-    function __ERC20_init_unchained(string memory name_, string memory symbol_) internal onlyInitializing {
-        _name = name_;
-        _symbol = symbol_;
-    }
-
-    /**
-     * @dev Returns the name of the token.
-     */
-    function name() public view virtual override returns (string memory) {
-        return _name;
-    }
-
-    /**
-     * @dev Returns the symbol of the token, usually a shorter version of the
-     * name.
-     */
-    function symbol() public view virtual override returns (string memory) {
-        return _symbol;
-    }
-
-    /**
-     * @dev Returns the number of decimals used to get its user representation.
-     * For example, if `decimals` equals `2`, a balance of `505` tokens should
-     * be displayed to a user as `5.05` (`505 / 10 ** 2`).
-     *
-     * Tokens usually opt for a value of 18, imitating the relationship between
-     * Ether and Wei. This is the value {ERC20} uses, unless this function is
-     * overridden;
-     *
-     * NOTE: This information is only used for _display_ purposes: it in
-     * no way affects any of the arithmetic of the contract, including
-     * {IERC20-balanceOf} and {IERC20-transfer}.
-     */
-    function decimals() public view virtual override returns (uint8) {
-        return 18;
-    }
-
-    /**
-     * @dev See {IERC20-totalSupply}.
-     */
-    function totalSupply() public view virtual override returns (uint256) {
-        return _totalSupply;
-    }
-
-    /**
-     * @dev See {IERC20-balanceOf}.
-     */
-    function balanceOf(address account) public view virtual override returns (uint256) {
-        return _balances[account];
-    }
-
-    /**
-     * @dev See {IERC20-transfer}.
-     *
-     * Requirements:
-     *
-     * - `to` cannot be the zero address.
-     * - the caller must have a balance of at least `amount`.
-     */
-    function transfer(address to, uint256 amount) public virtual override returns (bool) {
-        address owner = _msgSender();
-        _transfer(owner, to, amount);
-        return true;
-    }
-
-    /**
-     * @dev See {IERC20-allowance}.
-     */
-    function allowance(address owner, address spender) public view virtual override returns (uint256) {
-        return _allowances[owner][spender];
-    }
-
-    /**
-     * @dev See {IERC20-approve}.
-     *
-     * NOTE: If `amount` is the maximum `uint256`, the allowance is not updated on
-     * `transferFrom`. This is semantically equivalent to an infinite approval.
-     *
-     * Requirements:
-     *
-     * - `spender` cannot be the zero address.
-     */
-    function approve(address spender, uint256 amount) public virtual override returns (bool) {
-        address owner = _msgSender();
-        _approve(owner, spender, amount);
-        return true;
-    }
-
-    /**
-     * @dev See {IERC20-transferFrom}.
-     *
-     * Emits an {Approval} event indicating the updated allowance. This is not
-     * required by the EIP. See the note at the beginning of {ERC20}.
-     *
-     * NOTE: Does not update the allowance if the current allowance
-     * is the maximum `uint256`.
-     *
-     * Requirements:
-     *
-     * - `from` and `to` cannot be the zero address.
-     * - `from` must have a balance of at least `amount`.
-     * - the caller must have allowance for ``from``'s tokens of at least
-     * `amount`.
-     */
-    function transferFrom(
-        address from,
-        address to,
-        uint256 amount
-    ) public virtual override returns (bool) {
-        address spender = _msgSender();
-        _spendAllowance(from, spender, amount);
-        _transfer(from, to, amount);
-        return true;
-    }
-
-    /**
-     * @dev Atomically increases the allowance granted to `spender` by the caller.
-     *
-     * This is an alternative to {approve} that can be used as a mitigation for
-     * problems described in {IERC20-approve}.
-     *
-     * Emits an {Approval} event indicating the updated allowance.
-     *
-     * Requirements:
-     *
-     * - `spender` cannot be the zero address.
-     */
-    function increaseAllowance(address spender, uint256 addedValue) public virtual returns (bool) {
-        address owner = _msgSender();
-        _approve(owner, spender, allowance(owner, spender) + addedValue);
-        return true;
-    }
-
-    /**
-     * @dev Atomically decreases the allowance granted to `spender` by the caller.
-     *
-     * This is an alternative to {approve} that can be used as a mitigation for
-     * problems described in {IERC20-approve}.
-     *
-     * Emits an {Approval} event indicating the updated allowance.
-     *
-     * Requirements:
-     *
-     * - `spender` cannot be the zero address.
-     * - `spender` must have allowance for the caller of at least
-     * `subtractedValue`.
-     */
-    function decreaseAllowance(address spender, uint256 subtractedValue) public virtual returns (bool) {
-        address owner = _msgSender();
-        uint256 currentAllowance = allowance(owner, spender);
-        require(currentAllowance >= subtractedValue, "ERC20: decreased allowance below zero");
-        unchecked {
-            _approve(owner, spender, currentAllowance - subtractedValue);
-        }
-
-        return true;
-    }
-
-    /**
-     * @dev Moves `amount` of tokens from `from` to `to`.
-     *
-     * This internal function is equivalent to {transfer}, and can be used to
-     * e.g. implement automatic token fees, slashing mechanisms, etc.
-     *
-     * Emits a {Transfer} event.
-     *
-     * Requirements:
-     *
-     * - `from` cannot be the zero address.
-     * - `to` cannot be the zero address.
-     * - `from` must have a balance of at least `amount`.
-     */
-    function _transfer(
-        address from,
-        address to,
-        uint256 amount
-    ) internal virtual {
-        require(from != address(0), "ERC20: transfer from the zero address");
-        require(to != address(0), "ERC20: transfer to the zero address");
-
-        _beforeTokenTransfer(from, to, amount);
-
-        uint256 fromBalance = _balances[from];
-        require(fromBalance >= amount, "ERC20: transfer amount exceeds balance");
-        unchecked {
-            _balances[from] = fromBalance - amount;
-            // Overflow not possible: the sum of all balances is capped by totalSupply, and the sum is preserved by
-            // decrementing then incrementing.
-            _balances[to] += amount;
-        }
-
-        emit Transfer(from, to, amount);
-
-        _afterTokenTransfer(from, to, amount);
-    }
-
-    /** @dev Creates `amount` tokens and assigns them to `account`, increasing
-     * the total supply.
-     *
-     * Emits a {Transfer} event with `from` set to the zero address.
-     *
-     * Requirements:
-     *
-     * - `account` cannot be the zero address.
-     */
-    function _mint(address account, uint256 amount) internal virtual {
-        require(account != address(0), "ERC20: mint to the zero address");
-
-        _beforeTokenTransfer(address(0), account, amount);
-
-        _totalSupply += amount;
-        unchecked {
-            // Overflow not possible: balance + amount is at most totalSupply + amount, which is checked above.
-            _balances[account] += amount;
-        }
-        emit Transfer(address(0), account, amount);
-
-        _afterTokenTransfer(address(0), account, amount);
-    }
-
-    /**
-     * @dev Destroys `amount` tokens from `account`, reducing the
-     * total supply.
-     *
-     * Emits a {Transfer} event with `to` set to the zero address.
-     *
-     * Requirements:
-     *
-     * - `account` cannot be the zero address.
-     * - `account` must have at least `amount` tokens.
-     */
-    function _burn(address account, uint256 amount) internal virtual {
-        require(account != address(0), "ERC20: burn from the zero address");
-
-        _beforeTokenTransfer(account, address(0), amount);
-
-        uint256 accountBalance = _balances[account];
-        require(accountBalance >= amount, "ERC20: burn amount exceeds balance");
-        unchecked {
-            _balances[account] = accountBalance - amount;
-            // Overflow not possible: amount <= accountBalance <= totalSupply.
-            _totalSupply -= amount;
-        }
-
-        emit Transfer(account, address(0), amount);
-
-        _afterTokenTransfer(account, address(0), amount);
-    }
-
-    /**
-     * @dev Sets `amount` as the allowance of `spender` over the `owner` s tokens.
-     *
-     * This internal function is equivalent to `approve`, and can be used to
-     * e.g. set automatic allowances for certain subsystems, etc.
-     *
-     * Emits an {Approval} event.
-     *
-     * Requirements:
-     *
-     * - `owner` cannot be the zero address.
-     * - `spender` cannot be the zero address.
-     */
-    function _approve(
-        address owner,
-        address spender,
-        uint256 amount
-    ) internal virtual {
-        require(owner != address(0), "ERC20: approve from the zero address");
-        require(spender != address(0), "ERC20: approve to the zero address");
-
-        _allowances[owner][spender] = amount;
-        emit Approval(owner, spender, amount);
-    }
-
-    /**
-     * @dev Updates `owner` s allowance for `spender` based on spent `amount`.
-     *
-     * Does not update the allowance amount in case of infinite allowance.
-     * Revert if not enough allowance is available.
-     *
-     * Might emit an {Approval} event.
-     */
-    function _spendAllowance(
-        address owner,
-        address spender,
-        uint256 amount
-    ) internal virtual {
-        uint256 currentAllowance = allowance(owner, spender);
-        if (currentAllowance != type(uint256).max) {
-            require(currentAllowance >= amount, "ERC20: insufficient allowance");
-            unchecked {
-                _approve(owner, spender, currentAllowance - amount);
-            }
-        }
-    }
-
-    /**
-     * @dev Hook that is called before any transfer of tokens. This includes
-     * minting and burning.
-     *
-     * Calling conditions:
-     *
-     * - when `from` and `to` are both non-zero, `amount` of ``from``'s tokens
-     * will be transferred to `to`.
-     * - when `from` is zero, `amount` tokens will be minted for `to`.
-     * - when `to` is zero, `amount` of ``from``'s tokens will be burned.
-     * - `from` and `to` are never both zero.
-     *
-     * To learn more about hooks, head to xref:ROOT:extending-contracts.adoc#using-hooks[Using Hooks].
-     */
-    function _beforeTokenTransfer(
-        address from,
-        address to,
-        uint256 amount
-    ) internal virtual {}
-
-    /**
-     * @dev Hook that is called after any transfer of tokens. This includes
-     * minting and burning.
-     *
-     * Calling conditions:
-     *
-     * - when `from` and `to` are both non-zero, `amount` of ``from``'s tokens
-     * has been transferred to `to`.
-     * - when `from` is zero, `amount` tokens have been minted for `to`.
-     * - when `to` is zero, `amount` of ``from``'s tokens have been burned.
-     * - `from` and `to` are never both zero.
-     *
-     * To learn more about hooks, head to xref:ROOT:extending-contracts.adoc#using-hooks[Using Hooks].
-     */
-    function _afterTokenTransfer(
-        address from,
-        address to,
-        uint256 amount
-    ) internal virtual {}
-
-    /**
-     * @dev This empty reserved space is put in place to allow future versions to add new
-     * variables without shifting down storage in the inheritance chain.
-     * See https://docs.openzeppelin.com/contracts/4.x/upgradeable#storage_gaps
-     */
-    uint256[45] private __gap;
-}
-
-// OpenZeppelin Contracts (last updated v4.8.0) (security/ReentrancyGuard.sol)
-
-/**
- * @dev Contract module that helps prevent reentrant calls to a function.
- *
- * Inheriting from `ReentrancyGuard` will make the {nonReentrant} modifier
- * available, which can be applied to functions to make sure there are no nested
- * (reentrant) calls to them.
- *
- * Note that because there is a single `nonReentrant` guard, functions marked as
- * `nonReentrant` may not call one another. This can be worked around by making
- * those functions `private`, and then adding `external` `nonReentrant` entry
- * points to them.
- *
- * TIP: If you would like to learn more about reentrancy and alternative ways
- * to protect against it, check out our blog post
- * https://blog.openzeppelin.com/reentrancy-after-istanbul/[Reentrancy After Istanbul].
- */
-abstract contract ReentrancyGuardUpgradeable is Initializable {
-    // Booleans are more expensive than uint256 or any type that takes up a full
-    // word because each write operation emits an extra SLOAD to first read the
-    // slot's contents, replace the bits taken up by the boolean, and then write
-    // back. This is the compiler's defense against contract upgrades and
-    // pointer aliasing, and it cannot be disabled.
-
-    // The values being non-zero value makes deployment a bit more expensive,
-    // but in exchange the refund on every call to nonReentrant will be lower in
-    // amount. Since refunds are capped to a percentage of the total
-    // transaction's gas, it is best to keep them low in cases like this one, to
-    // increase the likelihood of the full refund coming into effect.
-    uint256 private constant _NOT_ENTERED = 1;
-    uint256 private constant _ENTERED = 2;
-
-    uint256 private _status;
-
-    function __ReentrancyGuard_init() internal onlyInitializing {
-        __ReentrancyGuard_init_unchained();
-    }
-
-    function __ReentrancyGuard_init_unchained() internal onlyInitializing {
-        _status = _NOT_ENTERED;
-    }
-
-    /**
-     * @dev Prevents a contract from calling itself, directly or indirectly.
-     * Calling a `nonReentrant` function from another `nonReentrant`
-     * function is not supported. It is possible to prevent this from happening
-     * by making the `nonReentrant` function external, and making it call a
-     * `private` function that does the actual work.
-     */
-    modifier nonReentrant() {
-        _nonReentrantBefore();
-        _;
-        _nonReentrantAfter();
-    }
-
-    function _nonReentrantBefore() private {
-        // On the first call to nonReentrant, _status will be _NOT_ENTERED
-        require(_status != _ENTERED, "ReentrancyGuard: reentrant call");
-
-        // Any calls to nonReentrant after this point will fail
-        _status = _ENTERED;
-    }
-
-    function _nonReentrantAfter() private {
-        // By storing the original value once again, a refund is triggered (see
-        // https://eips.ethereum.org/EIPS/eip-2200)
-        _status = _NOT_ENTERED;
-    }
-
-    /**
-     * @dev This empty reserved space is put in place to allow future versions to add new
-     * variables without shifting down storage in the inheritance chain.
-     * See https://docs.openzeppelin.com/contracts/4.x/upgradeable#storage_gaps
-     */
-    uint256[49] private __gap;
-}
-
 library DataTypes {
   // refer to the whitepaper, section 1.1 basic concepts for a formal description of these properties.
   struct ReserveData {
@@ -2396,6 +1528,881 @@ interface ISio2LendingPool {
   function paused() external view returns (bool);
 }
 
+// OpenZeppelin Contracts (last updated v4.8.0) (token/ERC20/ERC20.sol)
+
+// OpenZeppelin Contracts (last updated v4.6.0) (token/ERC20/IERC20.sol)
+
+/**
+ * @dev Interface of the ERC20 standard as defined in the EIP.
+ */
+interface IERC20Upgradeable {
+    /**
+     * @dev Emitted when `value` tokens are moved from one account (`from`) to
+     * another (`to`).
+     *
+     * Note that `value` may be zero.
+     */
+    event Transfer(address indexed from, address indexed to, uint256 value);
+
+    /**
+     * @dev Emitted when the allowance of a `spender` for an `owner` is set by
+     * a call to {approve}. `value` is the new allowance.
+     */
+    event Approval(address indexed owner, address indexed spender, uint256 value);
+
+    /**
+     * @dev Returns the amount of tokens in existence.
+     */
+    function totalSupply() external view returns (uint256);
+
+    /**
+     * @dev Returns the amount of tokens owned by `account`.
+     */
+    function balanceOf(address account) external view returns (uint256);
+
+    /**
+     * @dev Moves `amount` tokens from the caller's account to `to`.
+     *
+     * Returns a boolean value indicating whether the operation succeeded.
+     *
+     * Emits a {Transfer} event.
+     */
+    function transfer(address to, uint256 amount) external returns (bool);
+
+    /**
+     * @dev Returns the remaining number of tokens that `spender` will be
+     * allowed to spend on behalf of `owner` through {transferFrom}. This is
+     * zero by default.
+     *
+     * This value changes when {approve} or {transferFrom} are called.
+     */
+    function allowance(address owner, address spender) external view returns (uint256);
+
+    /**
+     * @dev Sets `amount` as the allowance of `spender` over the caller's tokens.
+     *
+     * Returns a boolean value indicating whether the operation succeeded.
+     *
+     * IMPORTANT: Beware that changing an allowance with this method brings the risk
+     * that someone may use both the old and the new allowance by unfortunate
+     * transaction ordering. One possible solution to mitigate this race
+     * condition is to first reduce the spender's allowance to 0 and set the
+     * desired value afterwards:
+     * https://github.com/ethereum/EIPs/issues/20#issuecomment-263524729
+     *
+     * Emits an {Approval} event.
+     */
+    function approve(address spender, uint256 amount) external returns (bool);
+
+    /**
+     * @dev Moves `amount` tokens from `from` to `to` using the
+     * allowance mechanism. `amount` is then deducted from the caller's
+     * allowance.
+     *
+     * Returns a boolean value indicating whether the operation succeeded.
+     *
+     * Emits a {Transfer} event.
+     */
+    function transferFrom(
+        address from,
+        address to,
+        uint256 amount
+    ) external returns (bool);
+}
+
+// OpenZeppelin Contracts v4.4.1 (token/ERC20/extensions/IERC20Metadata.sol)
+
+/**
+ * @dev Interface for the optional metadata functions from the ERC20 standard.
+ *
+ * _Available since v4.1._
+ */
+interface IERC20MetadataUpgradeable is IERC20Upgradeable {
+    /**
+     * @dev Returns the name of the token.
+     */
+    function name() external view returns (string memory);
+
+    /**
+     * @dev Returns the symbol of the token.
+     */
+    function symbol() external view returns (string memory);
+
+    /**
+     * @dev Returns the decimals places of the token.
+     */
+    function decimals() external view returns (uint8);
+}
+
+// OpenZeppelin Contracts v4.4.1 (utils/Context.sol)
+
+/**
+ * @dev Provides information about the current execution context, including the
+ * sender of the transaction and its data. While these are generally available
+ * via msg.sender and msg.data, they should not be accessed in such a direct
+ * manner, since when dealing with meta-transactions the account sending and
+ * paying for execution may not be the actual sender (as far as an application
+ * is concerned).
+ *
+ * This contract is only required for intermediate, library-like contracts.
+ */
+abstract contract ContextUpgradeable is Initializable {
+    function __Context_init() internal onlyInitializing {
+    }
+
+    function __Context_init_unchained() internal onlyInitializing {
+    }
+    function _msgSender() internal view virtual returns (address) {
+        return msg.sender;
+    }
+
+    function _msgData() internal view virtual returns (bytes calldata) {
+        return msg.data;
+    }
+
+    /**
+     * @dev This empty reserved space is put in place to allow future versions to add new
+     * variables without shifting down storage in the inheritance chain.
+     * See https://docs.openzeppelin.com/contracts/4.x/upgradeable#storage_gaps
+     */
+    uint256[50] private __gap;
+}
+
+/**
+ * @dev Implementation of the {IERC20} interface.
+ *
+ * This implementation is agnostic to the way tokens are created. This means
+ * that a supply mechanism has to be added in a derived contract using {_mint}.
+ * For a generic mechanism see {ERC20PresetMinterPauser}.
+ *
+ * TIP: For a detailed writeup see our guide
+ * https://forum.openzeppelin.com/t/how-to-implement-erc20-supply-mechanisms/226[How
+ * to implement supply mechanisms].
+ *
+ * We have followed general OpenZeppelin Contracts guidelines: functions revert
+ * instead returning `false` on failure. This behavior is nonetheless
+ * conventional and does not conflict with the expectations of ERC20
+ * applications.
+ *
+ * Additionally, an {Approval} event is emitted on calls to {transferFrom}.
+ * This allows applications to reconstruct the allowance for all accounts just
+ * by listening to said events. Other implementations of the EIP may not emit
+ * these events, as it isn't required by the specification.
+ *
+ * Finally, the non-standard {decreaseAllowance} and {increaseAllowance}
+ * functions have been added to mitigate the well-known issues around setting
+ * allowances. See {IERC20-approve}.
+ */
+contract ERC20Upgradeable is Initializable, ContextUpgradeable, IERC20Upgradeable, IERC20MetadataUpgradeable {
+    mapping(address => uint256) private _balances;
+
+    mapping(address => mapping(address => uint256)) private _allowances;
+
+    uint256 private _totalSupply;
+
+    string private _name;
+    string private _symbol;
+
+    /**
+     * @dev Sets the values for {name} and {symbol}.
+     *
+     * The default value of {decimals} is 18. To select a different value for
+     * {decimals} you should overload it.
+     *
+     * All two of these values are immutable: they can only be set once during
+     * construction.
+     */
+    function __ERC20_init(string memory name_, string memory symbol_) internal onlyInitializing {
+        __ERC20_init_unchained(name_, symbol_);
+    }
+
+    function __ERC20_init_unchained(string memory name_, string memory symbol_) internal onlyInitializing {
+        _name = name_;
+        _symbol = symbol_;
+    }
+
+    /**
+     * @dev Returns the name of the token.
+     */
+    function name() public view virtual override returns (string memory) {
+        return _name;
+    }
+
+    /**
+     * @dev Returns the symbol of the token, usually a shorter version of the
+     * name.
+     */
+    function symbol() public view virtual override returns (string memory) {
+        return _symbol;
+    }
+
+    /**
+     * @dev Returns the number of decimals used to get its user representation.
+     * For example, if `decimals` equals `2`, a balance of `505` tokens should
+     * be displayed to a user as `5.05` (`505 / 10 ** 2`).
+     *
+     * Tokens usually opt for a value of 18, imitating the relationship between
+     * Ether and Wei. This is the value {ERC20} uses, unless this function is
+     * overridden;
+     *
+     * NOTE: This information is only used for _display_ purposes: it in
+     * no way affects any of the arithmetic of the contract, including
+     * {IERC20-balanceOf} and {IERC20-transfer}.
+     */
+    function decimals() public view virtual override returns (uint8) {
+        return 18;
+    }
+
+    /**
+     * @dev See {IERC20-totalSupply}.
+     */
+    function totalSupply() public view virtual override returns (uint256) {
+        return _totalSupply;
+    }
+
+    /**
+     * @dev See {IERC20-balanceOf}.
+     */
+    function balanceOf(address account) public view virtual override returns (uint256) {
+        return _balances[account];
+    }
+
+    /**
+     * @dev See {IERC20-transfer}.
+     *
+     * Requirements:
+     *
+     * - `to` cannot be the zero address.
+     * - the caller must have a balance of at least `amount`.
+     */
+    function transfer(address to, uint256 amount) public virtual override returns (bool) {
+        address owner = _msgSender();
+        _transfer(owner, to, amount);
+        return true;
+    }
+
+    /**
+     * @dev See {IERC20-allowance}.
+     */
+    function allowance(address owner, address spender) public view virtual override returns (uint256) {
+        return _allowances[owner][spender];
+    }
+
+    /**
+     * @dev See {IERC20-approve}.
+     *
+     * NOTE: If `amount` is the maximum `uint256`, the allowance is not updated on
+     * `transferFrom`. This is semantically equivalent to an infinite approval.
+     *
+     * Requirements:
+     *
+     * - `spender` cannot be the zero address.
+     */
+    function approve(address spender, uint256 amount) public virtual override returns (bool) {
+        address owner = _msgSender();
+        _approve(owner, spender, amount);
+        return true;
+    }
+
+    /**
+     * @dev See {IERC20-transferFrom}.
+     *
+     * Emits an {Approval} event indicating the updated allowance. This is not
+     * required by the EIP. See the note at the beginning of {ERC20}.
+     *
+     * NOTE: Does not update the allowance if the current allowance
+     * is the maximum `uint256`.
+     *
+     * Requirements:
+     *
+     * - `from` and `to` cannot be the zero address.
+     * - `from` must have a balance of at least `amount`.
+     * - the caller must have allowance for ``from``'s tokens of at least
+     * `amount`.
+     */
+    function transferFrom(
+        address from,
+        address to,
+        uint256 amount
+    ) public virtual override returns (bool) {
+        address spender = _msgSender();
+        _spendAllowance(from, spender, amount);
+        _transfer(from, to, amount);
+        return true;
+    }
+
+    /**
+     * @dev Atomically increases the allowance granted to `spender` by the caller.
+     *
+     * This is an alternative to {approve} that can be used as a mitigation for
+     * problems described in {IERC20-approve}.
+     *
+     * Emits an {Approval} event indicating the updated allowance.
+     *
+     * Requirements:
+     *
+     * - `spender` cannot be the zero address.
+     */
+    function increaseAllowance(address spender, uint256 addedValue) public virtual returns (bool) {
+        address owner = _msgSender();
+        _approve(owner, spender, allowance(owner, spender) + addedValue);
+        return true;
+    }
+
+    /**
+     * @dev Atomically decreases the allowance granted to `spender` by the caller.
+     *
+     * This is an alternative to {approve} that can be used as a mitigation for
+     * problems described in {IERC20-approve}.
+     *
+     * Emits an {Approval} event indicating the updated allowance.
+     *
+     * Requirements:
+     *
+     * - `spender` cannot be the zero address.
+     * - `spender` must have allowance for the caller of at least
+     * `subtractedValue`.
+     */
+    function decreaseAllowance(address spender, uint256 subtractedValue) public virtual returns (bool) {
+        address owner = _msgSender();
+        uint256 currentAllowance = allowance(owner, spender);
+        require(currentAllowance >= subtractedValue, "ERC20: decreased allowance below zero");
+        unchecked {
+            _approve(owner, spender, currentAllowance - subtractedValue);
+        }
+
+        return true;
+    }
+
+    /**
+     * @dev Moves `amount` of tokens from `from` to `to`.
+     *
+     * This internal function is equivalent to {transfer}, and can be used to
+     * e.g. implement automatic token fees, slashing mechanisms, etc.
+     *
+     * Emits a {Transfer} event.
+     *
+     * Requirements:
+     *
+     * - `from` cannot be the zero address.
+     * - `to` cannot be the zero address.
+     * - `from` must have a balance of at least `amount`.
+     */
+    function _transfer(
+        address from,
+        address to,
+        uint256 amount
+    ) internal virtual {
+        require(from != address(0), "ERC20: transfer from the zero address");
+        require(to != address(0), "ERC20: transfer to the zero address");
+
+        _beforeTokenTransfer(from, to, amount);
+
+        uint256 fromBalance = _balances[from];
+        require(fromBalance >= amount, "ERC20: transfer amount exceeds balance");
+        unchecked {
+            _balances[from] = fromBalance - amount;
+            // Overflow not possible: the sum of all balances is capped by totalSupply, and the sum is preserved by
+            // decrementing then incrementing.
+            _balances[to] += amount;
+        }
+
+        emit Transfer(from, to, amount);
+
+        _afterTokenTransfer(from, to, amount);
+    }
+
+    /** @dev Creates `amount` tokens and assigns them to `account`, increasing
+     * the total supply.
+     *
+     * Emits a {Transfer} event with `from` set to the zero address.
+     *
+     * Requirements:
+     *
+     * - `account` cannot be the zero address.
+     */
+    function _mint(address account, uint256 amount) internal virtual {
+        require(account != address(0), "ERC20: mint to the zero address");
+
+        _beforeTokenTransfer(address(0), account, amount);
+
+        _totalSupply += amount;
+        unchecked {
+            // Overflow not possible: balance + amount is at most totalSupply + amount, which is checked above.
+            _balances[account] += amount;
+        }
+        emit Transfer(address(0), account, amount);
+
+        _afterTokenTransfer(address(0), account, amount);
+    }
+
+    /**
+     * @dev Destroys `amount` tokens from `account`, reducing the
+     * total supply.
+     *
+     * Emits a {Transfer} event with `to` set to the zero address.
+     *
+     * Requirements:
+     *
+     * - `account` cannot be the zero address.
+     * - `account` must have at least `amount` tokens.
+     */
+    function _burn(address account, uint256 amount) internal virtual {
+        require(account != address(0), "ERC20: burn from the zero address");
+
+        _beforeTokenTransfer(account, address(0), amount);
+
+        uint256 accountBalance = _balances[account];
+        require(accountBalance >= amount, "ERC20: burn amount exceeds balance");
+        unchecked {
+            _balances[account] = accountBalance - amount;
+            // Overflow not possible: amount <= accountBalance <= totalSupply.
+            _totalSupply -= amount;
+        }
+
+        emit Transfer(account, address(0), amount);
+
+        _afterTokenTransfer(account, address(0), amount);
+    }
+
+    /**
+     * @dev Sets `amount` as the allowance of `spender` over the `owner` s tokens.
+     *
+     * This internal function is equivalent to `approve`, and can be used to
+     * e.g. set automatic allowances for certain subsystems, etc.
+     *
+     * Emits an {Approval} event.
+     *
+     * Requirements:
+     *
+     * - `owner` cannot be the zero address.
+     * - `spender` cannot be the zero address.
+     */
+    function _approve(
+        address owner,
+        address spender,
+        uint256 amount
+    ) internal virtual {
+        require(owner != address(0), "ERC20: approve from the zero address");
+        require(spender != address(0), "ERC20: approve to the zero address");
+
+        _allowances[owner][spender] = amount;
+        emit Approval(owner, spender, amount);
+    }
+
+    /**
+     * @dev Updates `owner` s allowance for `spender` based on spent `amount`.
+     *
+     * Does not update the allowance amount in case of infinite allowance.
+     * Revert if not enough allowance is available.
+     *
+     * Might emit an {Approval} event.
+     */
+    function _spendAllowance(
+        address owner,
+        address spender,
+        uint256 amount
+    ) internal virtual {
+        uint256 currentAllowance = allowance(owner, spender);
+        if (currentAllowance != type(uint256).max) {
+            require(currentAllowance >= amount, "ERC20: insufficient allowance");
+            unchecked {
+                _approve(owner, spender, currentAllowance - amount);
+            }
+        }
+    }
+
+    /**
+     * @dev Hook that is called before any transfer of tokens. This includes
+     * minting and burning.
+     *
+     * Calling conditions:
+     *
+     * - when `from` and `to` are both non-zero, `amount` of ``from``'s tokens
+     * will be transferred to `to`.
+     * - when `from` is zero, `amount` tokens will be minted for `to`.
+     * - when `to` is zero, `amount` of ``from``'s tokens will be burned.
+     * - `from` and `to` are never both zero.
+     *
+     * To learn more about hooks, head to xref:ROOT:extending-contracts.adoc#using-hooks[Using Hooks].
+     */
+    function _beforeTokenTransfer(
+        address from,
+        address to,
+        uint256 amount
+    ) internal virtual {}
+
+    /**
+     * @dev Hook that is called after any transfer of tokens. This includes
+     * minting and burning.
+     *
+     * Calling conditions:
+     *
+     * - when `from` and `to` are both non-zero, `amount` of ``from``'s tokens
+     * has been transferred to `to`.
+     * - when `from` is zero, `amount` tokens have been minted for `to`.
+     * - when `to` is zero, `amount` of ``from``'s tokens have been burned.
+     * - `from` and `to` are never both zero.
+     *
+     * To learn more about hooks, head to xref:ROOT:extending-contracts.adoc#using-hooks[Using Hooks].
+     */
+    function _afterTokenTransfer(
+        address from,
+        address to,
+        uint256 amount
+    ) internal virtual {}
+
+    /**
+     * @dev This empty reserved space is put in place to allow future versions to add new
+     * variables without shifting down storage in the inheritance chain.
+     * See https://docs.openzeppelin.com/contracts/4.x/upgradeable#storage_gaps
+     */
+    uint256[45] private __gap;
+}
+
+interface IERC20Plus is IERC20Upgradeable {
+    function mint(address beneficiary, uint256 amount) external returns (bool);
+    function burn(address who, uint256 amount) external returns (bool);
+    function decimals() external view returns (uint8);
+    function scaledTotalSupply() external view returns (uint256);
+}
+
+// OpenZeppelin Contracts (last updated v4.7.0) (access/Ownable.sol)
+
+/**
+ * @dev Contract module which provides a basic access control mechanism, where
+ * there is an account (an owner) that can be granted exclusive access to
+ * specific functions.
+ *
+ * By default, the owner account will be the one that deploys the contract. This
+ * can later be changed with {transferOwnership}.
+ *
+ * This module is used through inheritance. It will make available the modifier
+ * `onlyOwner`, which can be applied to your functions to restrict their use to
+ * the owner.
+ */
+abstract contract OwnableUpgradeable is Initializable, ContextUpgradeable {
+    address private _owner;
+
+    event OwnershipTransferred(address indexed previousOwner, address indexed newOwner);
+
+    /**
+     * @dev Initializes the contract setting the deployer as the initial owner.
+     */
+    function __Ownable_init() internal onlyInitializing {
+        __Ownable_init_unchained();
+    }
+
+    function __Ownable_init_unchained() internal onlyInitializing {
+        _transferOwnership(_msgSender());
+    }
+
+    /**
+     * @dev Throws if called by any account other than the owner.
+     */
+    modifier onlyOwner() {
+        _checkOwner();
+        _;
+    }
+
+    /**
+     * @dev Returns the address of the current owner.
+     */
+    function owner() public view virtual returns (address) {
+        return _owner;
+    }
+
+    /**
+     * @dev Throws if the sender is not the owner.
+     */
+    function _checkOwner() internal view virtual {
+        require(owner() == _msgSender(), "Ownable: caller is not the owner");
+    }
+
+    /**
+     * @dev Leaves the contract without owner. It will not be possible to call
+     * `onlyOwner` functions anymore. Can only be called by the current owner.
+     *
+     * NOTE: Renouncing ownership will leave the contract without an owner,
+     * thereby removing any functionality that is only available to the owner.
+     */
+    function renounceOwnership() public virtual onlyOwner {
+        _transferOwnership(address(0));
+    }
+
+    /**
+     * @dev Transfers ownership of the contract to a new account (`newOwner`).
+     * Can only be called by the current owner.
+     */
+    function transferOwnership(address newOwner) public virtual onlyOwner {
+        require(newOwner != address(0), "Ownable: new owner is the zero address");
+        _transferOwnership(newOwner);
+    }
+
+    /**
+     * @dev Transfers ownership of the contract to a new account (`newOwner`).
+     * Internal function without access restriction.
+     */
+    function _transferOwnership(address newOwner) internal virtual {
+        address oldOwner = _owner;
+        _owner = newOwner;
+        emit OwnershipTransferred(oldOwner, newOwner);
+    }
+
+    /**
+     * @dev This empty reserved space is put in place to allow future versions to add new
+     * variables without shifting down storage in the inheritance chain.
+     * See https://docs.openzeppelin.com/contracts/4.x/upgradeable#storage_gaps
+     */
+    uint256[49] private __gap;
+}
+
+// OpenZeppelin Contracts (last updated v4.8.0) (token/ERC20/utils/SafeERC20.sol)
+
+// OpenZeppelin Contracts v4.4.1 (token/ERC20/extensions/draft-IERC20Permit.sol)
+
+/**
+ * @dev Interface of the ERC20 Permit extension allowing approvals to be made via signatures, as defined in
+ * https://eips.ethereum.org/EIPS/eip-2612[EIP-2612].
+ *
+ * Adds the {permit} method, which can be used to change an account's ERC20 allowance (see {IERC20-allowance}) by
+ * presenting a message signed by the account. By not relying on {IERC20-approve}, the token holder account doesn't
+ * need to send a transaction, and thus is not required to hold Ether at all.
+ */
+interface IERC20PermitUpgradeable {
+    /**
+     * @dev Sets `value` as the allowance of `spender` over ``owner``'s tokens,
+     * given ``owner``'s signed approval.
+     *
+     * IMPORTANT: The same issues {IERC20-approve} has related to transaction
+     * ordering also apply here.
+     *
+     * Emits an {Approval} event.
+     *
+     * Requirements:
+     *
+     * - `spender` cannot be the zero address.
+     * - `deadline` must be a timestamp in the future.
+     * - `v`, `r` and `s` must be a valid `secp256k1` signature from `owner`
+     * over the EIP712-formatted function arguments.
+     * - the signature must use ``owner``'s current nonce (see {nonces}).
+     *
+     * For more information on the signature format, see the
+     * https://eips.ethereum.org/EIPS/eip-2612#specification[relevant EIP
+     * section].
+     */
+    function permit(
+        address owner,
+        address spender,
+        uint256 value,
+        uint256 deadline,
+        uint8 v,
+        bytes32 r,
+        bytes32 s
+    ) external;
+
+    /**
+     * @dev Returns the current nonce for `owner`. This value must be
+     * included whenever a signature is generated for {permit}.
+     *
+     * Every successful call to {permit} increases ``owner``'s nonce by one. This
+     * prevents a signature from being used multiple times.
+     */
+    function nonces(address owner) external view returns (uint256);
+
+    /**
+     * @dev Returns the domain separator used in the encoding of the signature for {permit}, as defined by {EIP712}.
+     */
+    // solhint-disable-next-line func-name-mixedcase
+    function DOMAIN_SEPARATOR() external view returns (bytes32);
+}
+
+/**
+ * @title SafeERC20
+ * @dev Wrappers around ERC20 operations that throw on failure (when the token
+ * contract returns false). Tokens that return no value (and instead revert or
+ * throw on failure) are also supported, non-reverting calls are assumed to be
+ * successful.
+ * To use this library you can add a `using SafeERC20 for IERC20;` statement to your contract,
+ * which allows you to call the safe operations as `token.safeTransfer(...)`, etc.
+ */
+library SafeERC20Upgradeable {
+    using AddressUpgradeable for address;
+
+    function safeTransfer(
+        IERC20Upgradeable token,
+        address to,
+        uint256 value
+    ) internal {
+        _callOptionalReturn(token, abi.encodeWithSelector(token.transfer.selector, to, value));
+    }
+
+    function safeTransferFrom(
+        IERC20Upgradeable token,
+        address from,
+        address to,
+        uint256 value
+    ) internal {
+        _callOptionalReturn(token, abi.encodeWithSelector(token.transferFrom.selector, from, to, value));
+    }
+
+    /**
+     * @dev Deprecated. This function has issues similar to the ones found in
+     * {IERC20-approve}, and its usage is discouraged.
+     *
+     * Whenever possible, use {safeIncreaseAllowance} and
+     * {safeDecreaseAllowance} instead.
+     */
+    function safeApprove(
+        IERC20Upgradeable token,
+        address spender,
+        uint256 value
+    ) internal {
+        // safeApprove should only be called when setting an initial allowance,
+        // or when resetting it to zero. To increase and decrease it, use
+        // 'safeIncreaseAllowance' and 'safeDecreaseAllowance'
+        require(
+            (value == 0) || (token.allowance(address(this), spender) == 0),
+            "SafeERC20: approve from non-zero to non-zero allowance"
+        );
+        _callOptionalReturn(token, abi.encodeWithSelector(token.approve.selector, spender, value));
+    }
+
+    function safeIncreaseAllowance(
+        IERC20Upgradeable token,
+        address spender,
+        uint256 value
+    ) internal {
+        uint256 newAllowance = token.allowance(address(this), spender) + value;
+        _callOptionalReturn(token, abi.encodeWithSelector(token.approve.selector, spender, newAllowance));
+    }
+
+    function safeDecreaseAllowance(
+        IERC20Upgradeable token,
+        address spender,
+        uint256 value
+    ) internal {
+        unchecked {
+            uint256 oldAllowance = token.allowance(address(this), spender);
+            require(oldAllowance >= value, "SafeERC20: decreased allowance below zero");
+            uint256 newAllowance = oldAllowance - value;
+            _callOptionalReturn(token, abi.encodeWithSelector(token.approve.selector, spender, newAllowance));
+        }
+    }
+
+    function safePermit(
+        IERC20PermitUpgradeable token,
+        address owner,
+        address spender,
+        uint256 value,
+        uint256 deadline,
+        uint8 v,
+        bytes32 r,
+        bytes32 s
+    ) internal {
+        uint256 nonceBefore = token.nonces(owner);
+        token.permit(owner, spender, value, deadline, v, r, s);
+        uint256 nonceAfter = token.nonces(owner);
+        require(nonceAfter == nonceBefore + 1, "SafeERC20: permit did not succeed");
+    }
+
+    /**
+     * @dev Imitates a Solidity high-level call (i.e. a regular function call to a contract), relaxing the requirement
+     * on the return value: the return value is optional (but if data is returned, it must not be false).
+     * @param token The token targeted by the call.
+     * @param data The call data (encoded using abi.encode or one of its variants).
+     */
+    function _callOptionalReturn(IERC20Upgradeable token, bytes memory data) private {
+        // We need to perform a low level call here, to bypass Solidity's return data size checking mechanism, since
+        // we're implementing it ourselves. We use {Address-functionCall} to perform this call, which verifies that
+        // the target address contains contract code and also asserts for success in the low-level call.
+
+        bytes memory returndata = address(token).functionCall(data, "SafeERC20: low-level call failed");
+        if (returndata.length > 0) {
+            // Return data is optional
+            require(abi.decode(returndata, (bool)), "SafeERC20: ERC20 operation did not succeed");
+        }
+    }
+}
+
+// OpenZeppelin Contracts (last updated v4.8.0) (security/ReentrancyGuard.sol)
+
+/**
+ * @dev Contract module that helps prevent reentrant calls to a function.
+ *
+ * Inheriting from `ReentrancyGuard` will make the {nonReentrant} modifier
+ * available, which can be applied to functions to make sure there are no nested
+ * (reentrant) calls to them.
+ *
+ * Note that because there is a single `nonReentrant` guard, functions marked as
+ * `nonReentrant` may not call one another. This can be worked around by making
+ * those functions `private`, and then adding `external` `nonReentrant` entry
+ * points to them.
+ *
+ * TIP: If you would like to learn more about reentrancy and alternative ways
+ * to protect against it, check out our blog post
+ * https://blog.openzeppelin.com/reentrancy-after-istanbul/[Reentrancy After Istanbul].
+ */
+abstract contract ReentrancyGuardUpgradeable is Initializable {
+    // Booleans are more expensive than uint256 or any type that takes up a full
+    // word because each write operation emits an extra SLOAD to first read the
+    // slot's contents, replace the bits taken up by the boolean, and then write
+    // back. This is the compiler's defense against contract upgrades and
+    // pointer aliasing, and it cannot be disabled.
+
+    // The values being non-zero value makes deployment a bit more expensive,
+    // but in exchange the refund on every call to nonReentrant will be lower in
+    // amount. Since refunds are capped to a percentage of the total
+    // transaction's gas, it is best to keep them low in cases like this one, to
+    // increase the likelihood of the full refund coming into effect.
+    uint256 private constant _NOT_ENTERED = 1;
+    uint256 private constant _ENTERED = 2;
+
+    uint256 private _status;
+
+    function __ReentrancyGuard_init() internal onlyInitializing {
+        __ReentrancyGuard_init_unchained();
+    }
+
+    function __ReentrancyGuard_init_unchained() internal onlyInitializing {
+        _status = _NOT_ENTERED;
+    }
+
+    /**
+     * @dev Prevents a contract from calling itself, directly or indirectly.
+     * Calling a `nonReentrant` function from another `nonReentrant`
+     * function is not supported. It is possible to prevent this from happening
+     * by making the `nonReentrant` function external, and making it call a
+     * `private` function that does the actual work.
+     */
+    modifier nonReentrant() {
+        _nonReentrantBefore();
+        _;
+        _nonReentrantAfter();
+    }
+
+    function _nonReentrantBefore() private {
+        // On the first call to nonReentrant, _status will be _NOT_ENTERED
+        require(_status != _ENTERED, "ReentrancyGuard: reentrant call");
+
+        // Any calls to nonReentrant after this point will fail
+        _status = _ENTERED;
+    }
+
+    function _nonReentrantAfter() private {
+        // By storing the original value once again, a refund is triggered (see
+        // https://eips.ethereum.org/EIPS/eip-2200)
+        _status = _NOT_ENTERED;
+    }
+
+    /**
+     * @dev This empty reserved space is put in place to allow future versions to add new
+     * variables without shifting down storage in the inheritance chain.
+     * See https://docs.openzeppelin.com/contracts/4.x/upgradeable#storage_gaps
+     */
+    uint256[49] private __gap;
+}
+
 interface ISio2PriceOracle { //0x5f7c3639A854a27DFf64B320De5C9CAF9C4Bd323
   /***********
     @dev returns the asset price in ETH
@@ -2569,6 +2576,12 @@ interface IAdaptersDistributor {
     ) external;
 }
 
+interface IWASTR {
+    function deposit() external payable;
+
+    function withdraw(uint256) external;
+}
+
 contract Sio2Adapter is
     Initializable,
     OwnableUpgradeable,
@@ -2628,7 +2641,8 @@ contract Sio2Adapter is
 
     uint256 public liquidationPenalty;
     string public utilityName = "Sio2_Adapter";
-    IAdaptersDistributor public adaptersDistributor = IAdaptersDistributor(0x294Bb6b8e692543f373383A84A1f296D3C297aEf);
+    
+    IWASTR private constant WASTR = IWASTR(0xAeaaf0e2c81Af264101B9129C00F4440cCF0F720);
 
     //Events
     event Supply(address indexed user, uint256 indexed amount);
@@ -2661,10 +2675,10 @@ contract Sio2Adapter is
     event RemoveUser(address indexed user);
     event UpdateLastSTokenBalance(address indexed who, uint256 currentBalance);
 
-    // /// @custom:oz-upgrades-unsafe-allow constructor
-    // constructor() {
-    //     _disableInitializers();
-    // }
+    /// @custom:oz-upgrades-unsafe-allow constructor
+    constructor() {
+        _disableInitializers();
+    }
 
     function initialize(
         ISio2LendingPool _pool,
@@ -2689,8 +2703,6 @@ contract Sio2Adapter is
         (collateralLT, liquidationPenalty, collateralLTV) = assetManager.getAssetParameters(
             address(nastr)
         ); // set collateral params
-        utilityName = "Sio2_Adapter";
-        adaptersDistributor = IAdaptersDistributor(0x294Bb6b8e692543f373383A84A1f296D3C297aEf);
         setMaxAmountToBorrow(15); // set the max amount of borrowed assets
 
         _updateLastSTokenBalance();
@@ -2700,6 +2712,10 @@ contract Sio2Adapter is
         _updates(_user);
         _;
         _updateLastSTokenBalance();
+    }
+
+    receive() external payable {
+        require(msg.sender == address(WASTR), "Transfer ASTR to adapter allowed only for WASTR");
     }
 
     // @notice Supply nASTR tokens as collateral
@@ -2754,7 +2770,7 @@ contract Sio2Adapter is
 
         // check ltv condition in case of user's call
         if (msg.sender == _user) {
-            (, uint256 availableColToWithdraw) = availableCollateralUSD(_user);
+            (, uint256 availableColToWithdraw) = assetManager.availableCollateralUSD(_user);
             require(
                 // user can't withdraw collateral if his debt is too large
                 availableColToWithdraw >= toUSD(address(nastr), _amount),
@@ -2801,7 +2817,7 @@ contract Sio2Adapter is
         (, , address assetAddr, , , , , , , ) = assetManager.assetInfo(
             _assetName
         );
-        (uint256 availableColToBorrow, ) = availableCollateralUSD(msg.sender);
+        (uint256 availableColToBorrow, ) = assetManager.availableCollateralUSD(msg.sender);
 
         require(
             toUSD(assetAddr, _amount) <= availableColToBorrow,
@@ -2840,7 +2856,12 @@ contract Sio2Adapter is
         // update bToken's last balance
         assetManager.updateLastBTokenBalance(_assetName);
 
-        IERC20Upgradeable(assetAddr).safeTransfer(msg.sender, nativeAmount);
+        if (assetAddr == address(WASTR)) {
+            WASTR.withdraw(nativeAmount);
+            payable(msg.sender).sendValue(nativeAmount);
+        } else {
+            IERC20Upgradeable(assetAddr).safeTransfer(msg.sender, nativeAmount);
+        }
 
         emit Borrow(msg.sender, _assetName, _amount);
     }
@@ -2852,7 +2873,7 @@ contract Sio2Adapter is
     function repayPart(
         string memory _assetName,
         uint256 _amount
-    ) external update(msg.sender) nonReentrant {
+    ) external payable update(msg.sender) nonReentrant {
         _repay(_assetName, _amount, msg.sender);
     }
 
@@ -2860,7 +2881,7 @@ contract Sio2Adapter is
     // @param _assetName Asset name
     function repayFull(
         string memory _assetName
-    ) external update(msg.sender) nonReentrant {
+    ) external payable update(msg.sender) nonReentrant {
         (, string memory assetName, , , , , , , , ) = assetManager.assetInfo(
             _assetName
         );
@@ -2957,7 +2978,7 @@ contract Sio2Adapter is
     function getLiquidationParameters(
         address _user
     ) public update(_user) returns (uint256 hf, uint256 debtUSD) {
-        debtUSD = calcEstimateUserDebtUSD(_user);
+        debtUSD = assetManager.calcEstimateUserDebtUSD(_user);
         require(debtUSD > 0, "User has no debts");
         uint256 collateralUSD = toUSD(
             address(nastr),
@@ -3091,10 +3112,15 @@ contract Sio2Adapter is
         );
         IERC20Upgradeable asset = IERC20Upgradeable(assetAddress);
 
-        uint256 userBal = asset.balanceOf(msg.sender);
+        uint256 userBal;
+        if (assetAddress == address(WASTR)) {
+            userBal = msg.sender.balance;
+        } else {
+            userBal = asset.balanceOf(msg.sender);
 
-        // add missing zeros for correct calculations if needed
-        userBal = assetManager.to18DecFormat(assetAddress, userBal);
+            // add missing zeros for correct calculations if needed
+            userBal = assetManager.to18DecFormat(assetAddress, userBal);
+        }
 
         // check balance of user or liquidator
         require(
@@ -3110,8 +3136,16 @@ contract Sio2Adapter is
 
         uint256 nativeAmount = assetManager.toNativeDecFormat(assetAddress, _amount);
 
-        // take borrowed asset from user or liquidator and reduce user's debt
-        asset.safeTransferFrom(msg.sender, address(this), nativeAmount);
+        if (assetAddress == address(WASTR)) {
+            require(msg.value >= _amount, "ASTR amount must >= msg.value");
+            // return diff back to user
+            if (msg.value > _amount) payable(msg.sender).sendValue(msg.value - _amount);
+            // change astr to wastr
+            WASTR.deposit{value: _amount}();
+        } else {
+            // take borrowed asset from user or liquidator and reduce user's debt
+            asset.safeTransferFrom(msg.sender, address(this), nativeAmount);
+        }
 
         debts[_user][_assetName] -= _amount;
         assetManager.decreaseAssetsTotalBorrowed(_assetName, _amount);
@@ -3149,7 +3183,7 @@ contract Sio2Adapter is
     }
 
     // @notice Collect accumulated income of sio2 rewards
-    function _harvestRewards(uint256 _pendingRewards) private {
+    function _harvestRewards(uint256 _pendingRewards) public {
         address[] memory bTokens = assetManager.getBTokens();
         string[] memory assets = assetManager.getAssetsNames();
         // receiving rewards from incentives controller
@@ -3388,104 +3422,6 @@ contract Sio2Adapter is
         emit RemoveUser(msg.sender);
     }
 
-    // @notice Check user collateral amount without state updates
-    // @param _userAddr User address
-    // @return User's collateral value in USD
-    function calcEstimateUserCollateralUSD(
-        address _userAddr
-    ) public view returns (uint256 coll) {
-        User memory user = userInfo[_userAddr];
-        // get est collateral accRPS
-        uint256 estAccSTokensPerShare = accSTokensPerShare;
-        uint256 estUserCollateral = user.collateralAmount;
-
-        if (snastrToken.balanceOf(address(this)) > lastSTokenBalance) {
-            estAccSTokensPerShare +=
-                ((snastrToken.balanceOf(address(this)) - lastSTokenBalance) *
-                    REWARDS_PRECISION) /
-                totalSupply;
-        }
-
-        estUserCollateral +=
-            (estUserCollateral * estAccSTokensPerShare) /
-            REWARDS_PRECISION -
-            user.sTokensIncomeDebt;
-
-        coll = toUSD(address(nastr), estUserCollateral);
-    }
-
-    // @notice Check user debt amount without state updates
-    // @param _userAddr User address
-    // @return User's debt value in USD
-    function calcEstimateUserDebtUSD(
-        address _userAddr
-    ) public view returns (uint256 debtUSD) {
-        User memory user = userInfo[_userAddr];
-        for (uint256 i; i < user.borrowedAssets.length; ) {
-            (
-                ,
-                string memory assetName,
-                address assetAddr,
-                address assetBTokenAddress,
-                ,
-                uint256 assetLastBTokenBalance,
-                uint256 assetTotalBorrowed,
-                ,
-                uint256 assetAccBTokensPerShare,
-
-            ) = assetManager.assetInfo(user.borrowedAssets[i]);
-
-            uint256 debt = debts[user.addr][assetName];
-            uint256 income;
-            uint256 estAccBTokenRPS = assetAccBTokensPerShare;
-
-            ERC20Upgradeable bToken = ERC20Upgradeable(assetBTokenAddress);
-
-            uint256 bTokenBal = bToken.balanceOf(address(this));
-
-            // add missing zeros for correct calculations
-            bTokenBal = assetManager.to18DecFormat(assetBTokenAddress, bTokenBal);
-
-            if (bTokenBal > assetLastBTokenBalance) {
-                income = bTokenBal - assetLastBTokenBalance;
-            }
-
-            if (assetTotalBorrowed > 0 && income > 0) {
-                estAccBTokenRPS +=
-                    (income * REWARDS_PRECISION) /
-                    assetTotalBorrowed;
-                debt +=
-                    (debt * estAccBTokenRPS) /
-                    REWARDS_PRECISION -
-                    userBTokensIncomeDebt[user.addr][assetName];
-            }
-
-            debtUSD += toUSD(assetAddr, debt);
-
-            unchecked {
-                ++i;
-            }
-        }
-    }
-
-    // @notice To get the available amount to borrow expressed in usd
-    // @param _userAddr User addresss
-    // @return toBorrow Amount of collateral in usd available to borrow
-    // @return toWithdraw Amount of collateral in usd available to withdraw
-    function availableCollateralUSD(
-        address _userAddr
-    ) public view returns (uint256 toBorrow, uint256 toWithdraw) {
-        if (userInfo[_userAddr].collateralAmount == 0) return (0, 0);
-        uint256 debt = calcEstimateUserDebtUSD(_userAddr);
-        uint256 userCollateral = calcEstimateUserCollateralUSD(_userAddr);
-        uint256 collateralAfterLTV = (userCollateral * collateralLTV) /
-            RISK_PARAMS_PRECISION;
-        if (collateralAfterLTV > debt) toBorrow = collateralAfterLTV - debt;
-        uint256 debtAfterLTV = (debt * RISK_PARAMS_PRECISION) / collateralLTV;
-        if (userCollateral > debtAfterLTV)
-            toWithdraw = userCollateral - debtAfterLTV;
-    }
-
     // @notice Convert tokens value to USD
     // @param _asset Asset address
     // @param _amount Amount of token with 18 decimals
@@ -3510,6 +3446,17 @@ contract Sio2Adapter is
         return (_amount * PRICE_PRECISION) / price;
     }
 
+    // @notice Get share of n tokens in pool for user
+    // @param _user User's address
+    function calc(address _user) external view returns (uint256) {
+        return userInfo[_user].collateralAmount;
+    }
+
+    // @notice Disabled functionality to renounce ownership
+    function renounceOwnership() public override onlyOwner {
+        revert("It is not possible to renounce ownership");
+    }
+
     // @notice Get user info
     // @param _user User address
     // @return User's params
@@ -3525,13 +3472,6 @@ contract Sio2Adapter is
     // @notice Get length of users array
     function getUsersCount() external view returns (uint256) {
         return users.length;
-    }
-
-    /* to remove after tests 👉 */ function setLT(
-        uint256 _lt
-    ) public onlyOwner {
-        utilityName = "Sio2_Adapter";
-        adaptersDistributor = IAdaptersDistributor(0x294Bb6b8e692543f373383A84A1f296D3C297aEf);
     }
 }
 
@@ -3564,7 +3504,7 @@ contract Sio2AdapterAssetManager is Initializable, OwnableUpgradeable, Reentranc
         uint256 accBorrowedRewardsPerShare;
     }
 
-    IAdaptersDistributor public adaptersDistributor;
+    IAdaptersDistributor public constant ADAPTERS_DISTRIBUTOR = IAdaptersDistributor(0x294Bb6b8e692543f373383A84A1f296D3C297aEf);
 
     event AddAsset(address owner, string indexed assetName, address indexed assetAddress);
     event RemoveAsset(address owner, string indexed assetName);
@@ -3572,10 +3512,10 @@ contract Sio2AdapterAssetManager is Initializable, OwnableUpgradeable, Reentranc
     event UpdateBalSuccess(address user, string utilityName, uint256 amount);
     event UpdateBalError(address user, string utilityName, uint256 amount, string reason);
 
-    // /// @custom:oz-upgrades-unsafe-allow constructor
-    // constructor() {
-    //     _disableInitializers();
-    // }
+    /// @custom:oz-upgrades-unsafe-allow constructor
+    constructor() {
+        _disableInitializers();
+    }
 
     function initialize(
         ISio2LendingPool _pool,
@@ -3588,7 +3528,6 @@ contract Sio2AdapterAssetManager is Initializable, OwnableUpgradeable, Reentranc
         require(_snastr != address(0), "snASTR address cannot be zero");
 
         bTokens.push(_snastr);
-        adaptersDistributor = IAdaptersDistributor(0x294Bb6b8e692543f373383A84A1f296D3C297aEf);
 
         pool = _pool;
     }
@@ -3605,7 +3544,16 @@ contract Sio2AdapterAssetManager is Initializable, OwnableUpgradeable, Reentranc
         uint256 _rewardsWeight
     ) external onlyOwner {
         string memory _assetName = ERC20Upgradeable(_assetAddress).symbol();
-        
+        addAsset(_assetName, _assetAddress, _bToken, _rewardsWeight);
+    }
+
+    // @notice Allows owner to add new asset
+    function addAsset(
+        string memory _assetName,
+        address _assetAddress,
+        address _bToken,
+        uint256 _rewardsWeight
+    ) public onlyOwner {
         require(assetInfo[_assetName].addr == address(0), "Asset already added");
         require(keccak256(abi.encodePacked(_assetName)) != keccak256(""), "Empty asset name");
         require(!bTokenExist[_bToken], "Such bToken address already added");
@@ -3703,7 +3651,7 @@ contract Sio2AdapterAssetManager is Initializable, OwnableUpgradeable, Reentranc
         Sio2Adapter.User memory user = adapter.getUser(_user);
         uint256 nastrBalAfter = user.collateralAmount;
         try
-            adaptersDistributor.updateBalanceInAdapter(
+            ADAPTERS_DISTRIBUTOR.updateBalanceInAdapter(
                 "Sio2_Adapter",
                 _user,
                 nastrBalAfter
@@ -3713,6 +3661,95 @@ contract Sio2AdapterAssetManager is Initializable, OwnableUpgradeable, Reentranc
         } catch Error(string memory reason) {
             emit UpdateBalError(_user, "Sio2_Adapter", nastrBalAfter, reason);
         }
+    }
+
+    // @notice Check user collateral amount without state updates
+    // @param _userAddr User address
+    // @return User's collateral value in USD
+    function calcEstimateUserCollateralUSD(
+        address _userAddr
+    ) public view returns (uint256 coll) {
+        Sio2Adapter.User memory user = adapter.getUser(_userAddr);
+        // get est collateral accRPS
+        uint256 estAccSTokensPerShare = adapter.accSTokensPerShare();
+        uint256 estUserCollateral = user.collateralAmount;
+
+        IERC20Upgradeable snastr = IERC20Upgradeable(adapter.snastrToken());
+        if (snastr.balanceOf(address(this)) > adapter.lastSTokenBalance()) {
+            estAccSTokensPerShare +=
+                ((snastr.balanceOf(address(this)) - adapter.lastSTokenBalance()) *
+                    REWARDS_PRECISION) /
+                adapter.totalSupply();
+        }
+
+        estUserCollateral +=
+            (estUserCollateral * estAccSTokensPerShare) /
+            REWARDS_PRECISION -
+            user.sTokensIncomeDebt;
+
+        coll = adapter.toUSD(address(adapter.nastr()), estUserCollateral);
+    }
+
+    // @notice Check user debt amount without state updates
+    // @param _userAddr User address
+    // @return User's debt value in USD
+    function calcEstimateUserDebtUSD(
+        address _userAddr
+    ) public view returns (uint256 debtUSD) {
+        Sio2Adapter.User memory user = adapter.getUser(_userAddr);
+        for (uint256 i; i < user.borrowedAssets.length; ) {
+            Asset memory asset = assetInfo[user.borrowedAssets[i]];
+
+            uint256 debt = adapter.debts(user.addr, asset.name);
+            uint256 income;
+            uint256 estAccBTokenRPS = asset.accBTokensPerShare;
+
+            ERC20Upgradeable bToken = ERC20Upgradeable(asset.bTokenAddress);
+
+            uint256 bTokenBal = bToken.balanceOf(address(this));
+
+            // add missing zeros for correct calculations
+            bTokenBal = to18DecFormat(asset.bTokenAddress, bTokenBal);
+
+            if (bTokenBal > asset.lastBTokenBalance) {
+                income = bTokenBal - asset.lastBTokenBalance;
+            }
+
+            if (asset.totalBorrowed > 0 && income > 0) {
+                estAccBTokenRPS +=
+                    (income * REWARDS_PRECISION) /
+                    asset.totalBorrowed;
+                debt +=
+                    (debt * estAccBTokenRPS) /
+                    REWARDS_PRECISION -
+                    adapter.userBTokensIncomeDebt(user.addr, asset.name);
+            }
+
+            debtUSD += adapter.toUSD(asset.addr, debt);
+
+            unchecked {
+                ++i;
+            }
+        }
+    }
+
+    // @notice To get the available amount to borrow expressed in usd
+    // @param _userAddr User addresss
+    // @return toBorrow Amount of collateral in usd available to borrow
+    // @return toWithdraw Amount of collateral in usd available to withdraw
+    function availableCollateralUSD(
+        address _userAddr
+    ) public view returns (uint256 toBorrow, uint256 toWithdraw) {
+        Sio2Adapter.User memory user = adapter.getUser(_userAddr);
+        if (user.collateralAmount == 0) return (0, 0);
+        uint256 debt = calcEstimateUserDebtUSD(_userAddr);
+        uint256 userCollateral = calcEstimateUserCollateralUSD(_userAddr);
+        uint256 collateralAfterLTV = (userCollateral * adapter.collateralLTV()) /
+            1e4; // 1e4 is RISK_PARAMS_PRECISION
+        if (collateralAfterLTV > debt) toBorrow = collateralAfterLTV - debt;
+        uint256 debtAfterLTV = (debt * 1e4) / adapter.collateralLTV();
+        if (userCollateral > debtAfterLTV)
+            toWithdraw = userCollateral - debtAfterLTV;
     }
 
     function getBTokens() external view returns (address[] memory) {
@@ -3734,7 +3771,7 @@ contract Sio2AdapterAssetManager is Initializable, OwnableUpgradeable, Reentranc
     function getAvailableTokensToBorrow(
         address _user
     ) external view returns (uint256[] memory) {
-        (uint256 availableColForBorrowUSD,) = adapter.availableCollateralUSD(_user);
+        (uint256 availableColForBorrowUSD,) = availableCollateralUSD(_user);
 
         uint256 assetsAmount = assets.length;
 
@@ -3815,15 +3852,12 @@ contract Sio2AdapterAssetManager is Initializable, OwnableUpgradeable, Reentranc
     function getAssetInfo(string memory _assetName) external view returns (Asset memory) {
         return assetInfo[_assetName];
     }
-
-    /* to remove ❗️ */function set() public {
-        adaptersDistributor = IAdaptersDistributor(0x294Bb6b8e692543f373383A84A1f296D3C297aEf);
-    }
 }
 
 contract Sio2AdapterData is Initializable {
     Sio2Adapter private adapter;
     Sio2AdapterAssetManager private assetManager;
+    ISio2LendingPool private lendingPool;
 
     uint256 private constant RISK_PARAMS_PRECISION = 1e4;
 
@@ -3831,21 +3865,44 @@ contract Sio2AdapterData is Initializable {
     uint256 private collateralLTV;
 
     address private collateralAddr;
+    address private dotAddr = 0xFFfFfFffFFfffFFfFFfFFFFFffFFFffffFfFFFfF; 
+    address private wastrAddr = 0xAeaaf0e2c81Af264101B9129C00F4440cCF0F720; 
+    address private baiAddr = 0x733ebcC6DF85f8266349DEFD0980f8Ced9B45f35; 
+    address private ceusdcAddr = 0x6a2d262D56735DbA19Dd70682B39F6bE9a931D98; 
+    address private ceusdtAddr = 0x3795C36e7D12A8c252A20C5a7B455f7c57b60283; 
+    address private busdAddr = 0x4Bf769b05E832FCdc9053fFFBC78Ca889aCb5E1E; 
+    address private daiAddr = 0x6De33698e9e9b787e09d3Bd7771ef63557E148bb; 
+    address private wethAddr = 0x81ECac0D6Be0550A00FF064a4f9dd2400585FE9c; 
+    address private wbtcAddr = 0xad543f18cFf85c77E140E3E5E3c3392f6Ba9d5CA; 
+    address private bnbAddr = 0x7f27352D5F83Db87a5A3E00f4B07Cc2138D8ee52; 
 
-    function initialize(Sio2Adapter _adapter, Sio2AdapterAssetManager _assetManager) external initializer {
+    struct AssetRatesInfo {
+        uint256 uOptimal;
+        uint256 rSlope1;
+        uint256 rSlope2;
+    }
+
+    mapping(address => AssetRatesInfo) public assets;
+
+    function initialize(
+        Sio2Adapter _adapter, 
+        Sio2AdapterAssetManager _assetManager,
+        ISio2LendingPool _lendingPool
+    ) external initializer {
         adapter = _adapter;
         assetManager = _assetManager;
+        lendingPool = _lendingPool;
         collateralLT = adapter.collateralLT();
         collateralLTV = adapter.collateralLTV();
         collateralAddr = address(adapter.nastr());
     }
 
     function estimateHF(address _user) external view returns (uint256 hf) {
-        uint256 collateralUSD = adapter.calcEstimateUserCollateralUSD(_user);
+        uint256 collateralUSD = assetManager.calcEstimateUserCollateralUSD(_user);
 
         // get est borrowed accRPS for assets
         // calc est user's debt
-        uint256 debtUSD = adapter.calcEstimateUserDebtUSD(_user);
+        uint256 debtUSD = assetManager.calcEstimateUserDebtUSD(_user);
 
         require(debtUSD > 0, "User has no debts");
 
@@ -3864,11 +3921,11 @@ contract Sio2AdapterData is Initializable {
         // 1 - borrow limit used
         // 2 - health factor
 
-        (uint256 availableToBorrowUSD, uint256 availableToWithdrawUSD) = adapter.availableCollateralUSD(_user);
+        (uint256 availableToBorrowUSD, uint256 availableToWithdrawUSD) = assetManager.availableCollateralUSD(_user);
         uint256 inputDelta = adapter.toUSD(collateralAddr, _amount);
         uint256 inputDeltaLTV = inputDelta * collateralLTV / RISK_PARAMS_PRECISION;
-        uint256 currentDebtUSD = adapter.calcEstimateUserDebtUSD(_user);
-        uint256 currentCollateralUSD = adapter.calcEstimateUserCollateralUSD(_user);
+        uint256 currentDebtUSD = assetManager.calcEstimateUserDebtUSD(_user);
+        uint256 currentCollateralUSD = assetManager.calcEstimateUserCollateralUSD(_user);
 
         before[0] = availableToBorrowUSD; 
         before[1] = currentDebtUSD * 1e18 / availableToBorrowUSD;
@@ -3910,10 +3967,10 @@ contract Sio2AdapterData is Initializable {
         // 2 - health factor
 
         Sio2AdapterAssetManager.Asset memory asset = assetManager.getAssetInfo(_assetName);
-        (uint256 availableToBorrowUSD, uint256 availableToWithdrawUSD) = adapter.availableCollateralUSD(_user);
-        uint256 debtUSD = adapter.calcEstimateUserDebtUSD(_user);
+        (uint256 availableToBorrowUSD, uint256 availableToWithdrawUSD) = assetManager.availableCollateralUSD(_user);
+        uint256 debtUSD = assetManager.calcEstimateUserDebtUSD(_user);
         uint256 amountUSD = adapter.toUSD(asset.addr, _amount);
-        uint256 currentCollateralUSD = adapter.calcEstimateUserCollateralUSD(_user);
+        uint256 currentCollateralUSD = assetManager.calcEstimateUserCollateralUSD(_user);
 
         if (debtUSD == 0) debtUSD = 1;
 
@@ -3939,4 +3996,53 @@ contract Sio2AdapterData is Initializable {
 
         return (before, later);
     }
+
+    function getBorrowAssetLiquidity(string memory _assetName) external view returns (uint256) {
+        Sio2AdapterAssetManager.Asset memory asset = assetManager.getAssetInfo(_assetName);
+        address tokenAddr = asset.addr;
+
+        DataTypes.ReserveData memory data = lendingPool.getReserveData(tokenAddr);
+        address sTokenAddr = data.STokenAddress;
+        address vdTokenAddr = data.variableDebtTokenAddress;
+
+        uint256 sTokenSupply = ERC20Upgradeable(sTokenAddr).totalSupply();
+        uint256 vdTokenSupply = ERC20Upgradeable(vdTokenAddr).totalSupply();
+
+        return sTokenSupply - vdTokenSupply;
+    }
+
+    function getAPY(string memory _assetName) public view returns (uint256 interestRate) {
+        Sio2AdapterAssetManager.Asset memory asset = assetManager.getAssetInfo(_assetName);
+        address assetAddr = asset.addr;
+        
+        (uint256 amountB, uint256 amountS) = _getSupplies(assetAddr);
+        uint256 utilizationRate = amountB * 1 ether / amountS;
+        AssetRatesInfo memory rates = assets[assetAddr];
+        if (rates.uOptimal <= utilizationRate) {
+            interestRate = (rates.rSlope1 + (utilizationRate - rates.uOptimal) * rates.rSlope2 / (1 - rates.uOptimal)) / 1 ether;
+        } else {
+            interestRate = utilizationRate * rates.rSlope1 / rates.uOptimal;
+        }
+    }
+
+    function _getSupplies(address assetAddr) public view returns (uint256, uint256) {
+        DataTypes.ReserveData memory data = lendingPool.getReserveData(assetAddr);
+        IERC20Plus sToken = IERC20Plus(data.STokenAddress);
+        IERC20Plus vdToken = IERC20Plus(data.variableDebtTokenAddress);
+
+        return (vdToken.scaledTotalSupply(), sToken.scaledTotalSupply());
+    }
+
+    /* to remove ❗️ */function setAssetsInfo() public {
+        assets[dotAddr] = AssetRatesInfo(0.65 ether, 0.08 ether, 1.5 ether);
+        assets[wastrAddr] = AssetRatesInfo(0.55 ether, 0.08 ether, 3 ether);
+        assets[baiAddr] = AssetRatesInfo(0.9 ether, 0.04 ether, 0.6 ether);
+        assets[ceusdcAddr] = AssetRatesInfo(0.9 ether, 0.04 ether, 0.6 ether);
+        assets[ceusdtAddr] = AssetRatesInfo(0.9 ether, 0.04 ether, 0.6 ether);
+        assets[busdAddr] = AssetRatesInfo(0.9 ether, 0.04 ether, 0.6 ether);
+        assets[daiAddr] = AssetRatesInfo(0.9 ether, 0.04 ether, 0.6 ether);
+        assets[wethAddr] = AssetRatesInfo(0.7 ether, 0.08 ether, 1 ether);
+        assets[wbtcAddr] = AssetRatesInfo(0.65 ether, 0.08 ether, 1 ether);
+        assets[bnbAddr] = AssetRatesInfo(0.55 ether, 0.08 ether, 1.5 ether);
+    }    
 }

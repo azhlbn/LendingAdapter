@@ -7,4 +7,5 @@ interface IERC20Plus is IERC20Upgradeable {
     function mint(address beneficiary, uint256 amount) external returns (bool);
     function burn(address who, uint256 amount) external returns (bool);
     function decimals() external view returns (uint8);
+    function scaledTotalSupply() external view returns (uint256);
 }
