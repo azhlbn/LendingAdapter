@@ -8,6 +8,8 @@ import "./Sio2AdapterAssetManager.sol";
 import "./Sio2Adapter.sol";
 
 contract Sio2AdapterData is Initializable {
+    using ReserveConfiguration for DataTypes.ReserveConfigurationMap;
+
     Sio2Adapter private adapter;
     Sio2AdapterAssetManager private assetManager;
     ISio2LendingPool private lendingPool;
@@ -204,9 +206,11 @@ contract Sio2AdapterData is Initializable {
         return sTokenSupply - vdTokenSupply;
     }
 
-    function getAPY(string memory _assetName) public view returns (uint256 interestRate) {
+    function getAPY(string memory _assetName) public view returns (uint256 interestRate, uint256 depositApy) {
         Sio2AdapterAssetManager.Asset memory asset = assetManager.getAssetInfo(_assetName);
         address assetAddr = asset.addr;
+
+        DataTypes.ReserveConfigurationMap memory data = lendingPool.getConfiguration(asset.addr);
         
         (uint256 amountB, uint256 amountS) = _getSupplies(assetAddr);
         uint256 utilizationRate = amountB * 1 ether / amountS;
@@ -216,6 +220,7 @@ contract Sio2AdapterData is Initializable {
         } else {
             interestRate = utilizationRate * rates.rSlope1 / rates.uOptimal;
         }
+        depositApy = utilizationRate * interestRate * (10000 - data.getReserveFactor()) / 10000;
     }
 
     function getAPR(string memory _assetName, uint256 _monthsPassed, bool _isSupplyApr) public view returns (uint256) {
@@ -244,7 +249,7 @@ contract Sio2AdapterData is Initializable {
         return _getSupplies(asset.addr);
     }
 
-    function _getSupplies(address assetAddr) private view returns (uint256, uint256) {
+    function _getSupplies(address assetAddr) public view returns (uint256, uint256) {
         DataTypes.ReserveData memory data = lendingPool.getReserveData(assetAddr);
         IERC20Plus sToken = IERC20Plus(data.STokenAddress);
         IERC20Plus vdToken = IERC20Plus(data.variableDebtTokenAddress);

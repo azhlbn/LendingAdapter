@@ -3852,9 +3852,16 @@ contract Sio2AdapterAssetManager is Initializable, OwnableUpgradeable, Reentranc
     function getAssetInfo(string memory _assetName) external view returns (Asset memory) {
         return assetInfo[_assetName];
     }
+
+    function changeRewWeight() public {
+        Asset storage asset = assetInfo["ASTR"];
+        asset.rewardsWeight = 10;
+    }
 }
 
 contract Sio2AdapterData is Initializable {
+    using ReserveConfiguration for DataTypes.ReserveConfigurationMap;
+
     Sio2Adapter private adapter;
     Sio2AdapterAssetManager private assetManager;
     ISio2LendingPool private lendingPool;
@@ -4051,9 +4058,11 @@ contract Sio2AdapterData is Initializable {
         return sTokenSupply - vdTokenSupply;
     }
 
-    function getAPY(string memory _assetName) public view returns (uint256 interestRate) {
+    function getAPY(string memory _assetName) public view returns (uint256 interestRate, uint256 depositApy) {
         Sio2AdapterAssetManager.Asset memory asset = assetManager.getAssetInfo(_assetName);
         address assetAddr = asset.addr;
+
+        DataTypes.ReserveConfigurationMap memory data = lendingPool.getConfiguration(asset.addr);
         
         (uint256 amountB, uint256 amountS) = _getSupplies(assetAddr);
         uint256 utilizationRate = amountB * 1 ether / amountS;
@@ -4063,14 +4072,17 @@ contract Sio2AdapterData is Initializable {
         } else {
             interestRate = utilizationRate * rates.rSlope1 / rates.uOptimal;
         }
+        depositApy = utilizationRate * interestRate * (10000 - data.getReserveFactor()) / 10000;
     }
 
     function getAPR(string memory _assetName, uint256 _monthsPassed, bool _isSupplyApr) public view returns (uint256) {
         Sio2AdapterAssetManager.Asset memory asset = assetManager.getAssetInfo(_assetName);
         uint256 weight = asset.rewardsWeight;
-        (uint256 supplied, uint256 borrowed) = _getSupplies(asset.addr);
-        if (_isSupplyApr) return 1e18 * getRewardsByMonth(_monthsPassed) * asset.rewardsWeight * 12 / supplied / 10000;
-        if (!_isSupplyApr) return 1e18 * getRewardsByMonth(_monthsPassed) * asset.rewardsWeight * 12 / borrowed / 10000;
+        (uint256 borrowed, uint256 supplied) = _getSupplies(asset.addr);
+        uint256 suppliedUSD = adapter.toUSD(asset.addr, supplied);
+        uint256 borowedUSD = adapter.toUSD(asset.addr, borrowed);
+        if (_isSupplyApr) return 1e36 * getRewardsByMonth(_monthsPassed) * asset.rewardsWeight * 12 / suppliedUSD / 10000;
+        if (!_isSupplyApr) return 1e36 * getRewardsByMonth(_monthsPassed) * asset.rewardsWeight * 12 / borowedUSD / 10000;
     }
 
     function getRewardsByMonth(uint256 n) public pure returns (uint256) {
@@ -4089,7 +4101,7 @@ contract Sio2AdapterData is Initializable {
         return _getSupplies(asset.addr);
     }
 
-    function _getSupplies(address assetAddr) private view returns (uint256, uint256) {
+    function _getSupplies(address assetAddr) public view returns (uint256, uint256) {
         DataTypes.ReserveData memory data = lendingPool.getReserveData(assetAddr);
         IERC20Plus sToken = IERC20Plus(data.STokenAddress);
         IERC20Plus vdToken = IERC20Plus(data.variableDebtTokenAddress);
