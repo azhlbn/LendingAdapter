@@ -13,9 +13,11 @@ contract MockERC20Upgradeable is Initializable, ERC20Upgradeable, ERC20BurnableU
 
     function mint(address user, uint256 amount) public returns (bool) {
         _mint(user, amount);
+        return true;
     }
 
     function burn(address user, uint256 amount) public returns (bool) {
         _burn(user, amount);
+        return true;
     }
 }

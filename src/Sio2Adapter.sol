@@ -568,7 +568,7 @@ contract Sio2Adapter is
         uint256 nativeAmount = assetManager.toNativeDecFormat(assetAddress, _amount);
 
         if (assetAddress == address(WASTR)) {
-            require(msg.value >= _amount, "ASTR amount must >= msg.value");
+            require(msg.value >= _amount, "msg.value must be >= _amount");
             // return diff back to user
             if (msg.value > _amount) payable(msg.sender).sendValue(msg.value - _amount);
             // change astr to wastr

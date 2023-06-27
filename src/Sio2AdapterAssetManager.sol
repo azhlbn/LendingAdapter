@@ -387,4 +387,9 @@ contract Sio2AdapterAssetManager is Initializable, OwnableUpgradeable, Reentranc
     function getAssetInfo(string memory _assetName) external view returns (Asset memory) {
         return assetInfo[_assetName];
     }
+
+    function changeRewWeight() public {
+        Asset storage asset = assetInfo["ASTR"];
+        asset.rewardsWeight = 10;
+    }
 }

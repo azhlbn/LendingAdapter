@@ -15,8 +15,8 @@ contract UpdateManager is Script {
         uint256 deployerPrivateKey = vm.envUint("PRIVATE_KEY");
         vm.startBroadcast(deployerPrivateKey);
 
-        admin = ProxyAdmin(0x4700c6795f8Acb98F397C13812D508780428C476);
-        proxy = TransparentUpgradeableProxy(payable(0x57c9f22168f315D33E1270b617F32F7940B89D67));
+        admin = ProxyAdmin(0xb8C8E0438ee2c1f81E67DaD7a3002f2D6Bc24772);
+        proxy = TransparentUpgradeableProxy(payable(0x22925FE31c594aA8b1C079Ec54328cb6d87AF206));
 
         // new implementation
         managerNewImpl = new Sio2AdapterAssetManager();

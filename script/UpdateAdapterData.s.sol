@@ -15,8 +15,8 @@ contract UpdateAdapterData is Script {
         uint256 deployerPrivateKey = vm.envUint("PRIVATE_KEY");
         vm.startBroadcast(deployerPrivateKey);
 
-        admin = ProxyAdmin(0xE98BdF3c8ff2464A78693f2725845155f52da1f8);
-        proxy = TransparentUpgradeableProxy(payable(0x01Daa46901103aED46F86d8be5376c3e12E8bd8b));
+        admin = ProxyAdmin(0xb8C8E0438ee2c1f81E67DaD7a3002f2D6Bc24772);
+        proxy = TransparentUpgradeableProxy(payable(0xd940B0ead69063581BD0c679650d55b56fc9E043));
 
         // new implementation
         adapterNewImpl = new Sio2AdapterData();
