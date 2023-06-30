@@ -313,9 +313,6 @@ contract Sio2Adapter is
     function repayFull(
         string memory _assetName
     ) external payable update(msg.sender) nonReentrant {
-        (, string memory assetName, , , , , , , , ) = assetManager.assetInfo(
-            _assetName
-        );
         uint256 fullDebtAmount = debts[msg.sender][_assetName];
 
         _repay(_assetName, fullDebtAmount, msg.sender);
@@ -544,13 +541,13 @@ contract Sio2Adapter is
         IERC20Upgradeable asset = IERC20Upgradeable(assetAddress);
 
         uint256 userBal;
-        if (assetAddress == address(WASTR)) {
-            userBal = msg.sender.balance;
-        } else {
+        if (assetAddress != address(WASTR)) {
             userBal = asset.balanceOf(msg.sender);
 
             // add missing zeros for correct calculations if needed
             userBal = assetManager.to18DecFormat(assetAddress, userBal);
+
+            require(userBal >= _amount, "Not enough wallet balance to repay");
         }
 
         // check balance of user or liquidator
@@ -558,7 +555,6 @@ contract Sio2Adapter is
             debts[_user][_assetName] > 0,
             "The user has no debt in this asset"
         );
-        require(userBal >= _amount, "Not enough wallet balance to repay");
         require(_amount > 0, "Amount should be greater than zero");
         require(
             debts[_user][_assetName] >= _amount,

@@ -234,38 +234,35 @@ contract Sio2AdapterAssetManager is Initializable, OwnableUpgradeable, Reentranc
         Sio2Adapter.User memory user = adapter.getUser(_userAddr);
         for (uint256 i; i < user.borrowedAssets.length; ) {
             Asset memory asset = assetInfo[user.borrowedAssets[i]];
-
-            uint256 debt = adapter.debts(user.addr, asset.name);
-            uint256 income;
-            uint256 estAccBTokenRPS = asset.accBTokensPerShare;
-
-            ERC20Upgradeable bToken = ERC20Upgradeable(asset.bTokenAddress);
-
-            uint256 bTokenBal = bToken.balanceOf(address(this));
-
-            // add missing zeros for correct calculations
-            bTokenBal = to18DecFormat(asset.bTokenAddress, bTokenBal);
-
-            if (bTokenBal > asset.lastBTokenBalance) {
-                income = bTokenBal - asset.lastBTokenBalance;
-            }
-
-            if (asset.totalBorrowed > 0 && income > 0) {
-                estAccBTokenRPS +=
-                    (income * REWARDS_PRECISION) /
-                    asset.totalBorrowed;
-                debt +=
-                    (debt * estAccBTokenRPS) /
-                    REWARDS_PRECISION -
-                    adapter.userBTokensIncomeDebt(user.addr, asset.name);
-            }
-
+            uint256 debt = estimateDebtInAsset(_userAddr, user.borrowedAssets[i]);
             debtUSD += adapter.toUSD(asset.addr, debt);
 
             unchecked {
                 ++i;
             }
         }
+    }
+
+    function estimateDebtInAsset(address _userAddr, string memory _assetName) public view returns (uint256) {
+        Asset memory asset = assetInfo[_assetName];
+
+        uint256 bIncomeDebt = adapter.userBTokensIncomeDebt(_userAddr, _assetName);
+        uint256 estDebt = adapter.debts(_userAddr, _assetName);
+        uint256 estAccBTokens = asset.accBTokensPerShare;
+
+        uint256 income;
+        uint256 curBBal = ERC20Upgradeable(asset.bTokenAddress).balanceOf(address(adapter));
+        uint256 curBBal18Dec = to18DecFormat(asset.bTokenAddress, curBBal);
+        if (curBBal18Dec > asset.lastBTokenBalance) {
+            income = curBBal18Dec - asset.lastBTokenBalance;
+        }
+
+        if (curBBal18Dec > 0 && income > 0) {
+            estAccBTokens += income * REWARDS_PRECISION / curBBal18Dec;
+            estDebt += estDebt * estAccBTokens / REWARDS_PRECISION - bIncomeDebt;
+        }
+
+        return estDebt;
     }
 
     // @notice To get the available amount to borrow expressed in usd

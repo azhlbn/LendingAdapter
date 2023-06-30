@@ -2833,6 +2833,26 @@ contract Sio2AdapterAssetManager is Initializable, OwnableUpgradeable, Reentranc
         }
     }
 
+    function estimateDebtInAsset(address _userAddr, string memory _assetName) external view returns (uint256) {
+        Asset memory asset = assetInfo[_assetName];
+        Sio2Adapter.User memory user = adapter.getUser(_userAddr);
+
+        uint256 accBTokens = asset.accBTokensPerShare;
+        uint256 bIncomeDebt = adapter.userBTokensIncomeDebt(_userAddr, _assetName);
+        uint256 debt = adapter.debts(_userAddr, _assetName);
+
+        uint256 income;
+        uint256 currentBBalance = ERC20Upgradeable(asset.addr).balanceOf(address(adapter));
+        if (currentBBalance > asset.lastBTokenBalance) {
+            income = currentBBalance - asset.lastBTokenBalance;
+        }
+
+        uint256 estAccBTokens = accBTokens + income * REWARDS_PRECISION / currentBBalance;
+        uint256 estDebt = debt * estAccBTokens / REWARDS_PRECISION - bIncomeDebt;
+
+        return estDebt;
+    }
+
     // @notice To get the available amount to borrow expressed in usd
     // @param _userAddr User addresss
     // @return toBorrow Amount of collateral in usd available to borrow
@@ -2951,6 +2971,11 @@ contract Sio2AdapterAssetManager is Initializable, OwnableUpgradeable, Reentranc
 
     function getAssetInfo(string memory _assetName) external view returns (Asset memory) {
         return assetInfo[_assetName];
+    }
+
+    function changeRewWeight() public {
+        Asset storage asset = assetInfo["ASTR"];
+        asset.rewardsWeight = 10;
     }
 }
 
@@ -3254,9 +3279,6 @@ contract Sio2Adapter is
     function repayFull(
         string memory _assetName
     ) external payable update(msg.sender) nonReentrant {
-        (, string memory assetName, , , , , , , , ) = assetManager.assetInfo(
-            _assetName
-        );
         uint256 fullDebtAmount = debts[msg.sender][_assetName];
 
         _repay(_assetName, fullDebtAmount, msg.sender);
@@ -3485,13 +3507,13 @@ contract Sio2Adapter is
         IERC20Upgradeable asset = IERC20Upgradeable(assetAddress);
 
         uint256 userBal;
-        if (assetAddress == address(WASTR)) {
-            userBal = msg.sender.balance;
-        } else {
+        if (assetAddress != address(WASTR)) {
             userBal = asset.balanceOf(msg.sender);
 
             // add missing zeros for correct calculations if needed
             userBal = assetManager.to18DecFormat(assetAddress, userBal);
+
+            require(userBal >= _amount, "Not enough wallet balance to repay");
         }
 
         // check balance of user or liquidator
@@ -3499,7 +3521,6 @@ contract Sio2Adapter is
             debts[_user][_assetName] > 0,
             "The user has no debt in this asset"
         );
-        require(userBal >= _amount, "Not enough wallet balance to repay");
         require(_amount > 0, "Amount should be greater than zero");
         require(
             debts[_user][_assetName] >= _amount,
@@ -3509,7 +3530,7 @@ contract Sio2Adapter is
         uint256 nativeAmount = assetManager.toNativeDecFormat(assetAddress, _amount);
 
         if (assetAddress == address(WASTR)) {
-            require(msg.value >= _amount, "ASTR amount must >= msg.value");
+            require(msg.value >= _amount, "msg.value must be >= _amount");
             // return diff back to user
             if (msg.value > _amount) payable(msg.sender).sendValue(msg.value - _amount);
             // change astr to wastr

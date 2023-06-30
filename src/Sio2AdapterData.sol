@@ -220,17 +220,25 @@ contract Sio2AdapterData is Initializable {
         } else {
             interestRate = utilizationRate * rates.rSlope1 / rates.uOptimal;
         }
-        depositApy = utilizationRate * interestRate * (10000 - data.getReserveFactor()) / 10000;
+        depositApy = utilizationRate * interestRate * (10000 - data.getReserveFactor()) / 10000 / 1e18;
     }
 
     function getAPR(string memory _assetName, uint256 _monthsPassed, bool _isSupplyApr) public view returns (uint256) {
-        Sio2AdapterAssetManager.Asset memory asset = assetManager.getAssetInfo(_assetName);
-        uint256 weight = asset.rewardsWeight;
-        (uint256 borrowed, uint256 supplied) = _getSupplies(asset.addr);
-        uint256 suppliedUSD = adapter.toUSD(asset.addr, supplied);
-        uint256 borowedUSD = adapter.toUSD(asset.addr, borrowed);
-        if (_isSupplyApr) return 1e36 * getRewardsByMonth(_monthsPassed) * asset.rewardsWeight * 12 / suppliedUSD / 10000;
-        if (!_isSupplyApr) return 1e36 * getRewardsByMonth(_monthsPassed) * asset.rewardsWeight * 12 / borowedUSD / 10000;
+        uint256 weight;
+        address assetAddr;
+        if (keccak256(abi.encodePacked(_assetName)) == keccak256("nASTR")) {
+            assetAddr = collateralAddr;
+            weight = 11;
+        } else {
+            Sio2AdapterAssetManager.Asset memory asset = assetManager.getAssetInfo(_assetName);
+            weight = asset.rewardsWeight;
+            assetAddr = asset.addr;
+        }
+        (uint256 borrowed, uint256 supplied) = _getSupplies(assetAddr);
+        uint256 suppliedUSD = adapter.toUSD(assetAddr, supplied);
+        uint256 borowedUSD = adapter.toUSD(assetAddr, borrowed);
+        if (_isSupplyApr) return 1e36 * getRewardsByMonth(_monthsPassed) * weight * 12 / suppliedUSD / 10000;
+        if (!_isSupplyApr) return 1e36 * getRewardsByMonth(_monthsPassed) * weight * 12 / borowedUSD / 10000;
     }
 
     function getRewardsByMonth(uint256 n) public pure returns (uint256) {
