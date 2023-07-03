@@ -329,15 +329,15 @@ contract Sio2AdapterAssetManager is Initializable, OwnableUpgradeable, Reentranc
         uint256[] memory
     ) {
         Sio2Adapter.User memory user = adapter.getUser(_user);
-        string[] memory assetsNames = new string[](user.borrowedAssets.length);
+        string[] memory assetNames = new string[](user.borrowedAssets.length);
         uint256[] memory debtAmounts = new uint256[](user.borrowedAssets.length);
-        assetsNames = user.borrowedAssets;
+        assetNames = user.borrowedAssets;
 
-        for (uint256 i; i < assetsNames.length; i++) {
-            debtAmounts[i] = adapter.debts(_user, assetsNames[i]);
+        for (uint256 i; i < assetNames.length; i++) {
+            debtAmounts[i] = estimateDebtInAsset(_user, assetNames[i]);
         }
 
-        return (assetsNames, debtAmounts);
+        return (assetNames, debtAmounts);
     }
 
     // @notice Used to get assets params
