@@ -56,7 +56,8 @@ contract Sio2Adapter is
     mapping(address => mapping(string => uint256)) public debts;
     mapping(address => mapping(string => uint256)) public userBorrowedAssetID;
     mapping(address => mapping(string => uint256)) public userBTokensIncomeDebt;
-    mapping(address => mapping(string => uint256)) public userBorrowedRewardDebt;
+    mapping(address => mapping(string => uint256))
+        public userBorrowedRewardDebt;
 
     address[] public users;
 
@@ -72,8 +73,9 @@ contract Sio2Adapter is
 
     uint256 public liquidationPenalty;
     string public utilityName = "Sio2_Adapter";
-    
-    IWASTR private constant WASTR = IWASTR(0xAeaaf0e2c81Af264101B9129C00F4440cCF0F720);
+
+    IWASTR private constant WASTR =
+        IWASTR(0xAeaaf0e2c81Af264101B9129C00F4440cCF0F720);
 
     //Events
     event Supply(address indexed user, uint256 indexed amount);
@@ -131,9 +133,8 @@ contract Sio2Adapter is
         incentivesController = _incentivesController;
         priceOracle = _priceOracle;
         lastUpdatedBlock = block.number;
-        (collateralLT, liquidationPenalty, collateralLTV) = assetManager.getAssetParameters(
-            address(nastr)
-        ); // set collateral params
+        (collateralLT, liquidationPenalty, collateralLTV) = assetManager
+            .getAssetParameters(address(nastr)); // set collateral params
         setMaxAmountToBorrow(15); // set the max amount of borrowed assets
 
         _updateLastSTokenBalance();
@@ -146,7 +147,10 @@ contract Sio2Adapter is
     }
 
     receive() external payable {
-        require(msg.sender == address(WASTR), "Transfer ASTR to adapter allowed only for WASTR");
+        require(
+            msg.sender == address(WASTR),
+            "Transfer ASTR to adapter allowed only for WASTR"
+        );
     }
 
     // @notice Supply nASTR tokens as collateral
@@ -201,7 +205,8 @@ contract Sio2Adapter is
 
         // check ltv condition in case of user's call
         if (msg.sender == _user) {
-            (, uint256 availableColToWithdraw) = assetManager.availableCollateralUSD(_user);
+            (, uint256 availableColToWithdraw) = assetManager
+                .availableCollateralUSD(_user);
             require(
                 // user can't withdraw collateral if his debt is too large
                 availableColToWithdraw >= toUSD(address(nastr), _amount),
@@ -248,7 +253,9 @@ contract Sio2Adapter is
         (, , address assetAddr, , , , , , , ) = assetManager.assetInfo(
             _assetName
         );
-        (uint256 availableColToBorrow, ) = assetManager.availableCollateralUSD(msg.sender);
+        (uint256 availableColToBorrow, ) = assetManager.availableCollateralUSD(
+            msg.sender
+        );
 
         require(
             toUSD(assetAddr, _amount) <= availableColToBorrow,
@@ -278,7 +285,10 @@ contract Sio2Adapter is
             user.borrowedAssets.push(_assetName);
         }
 
-        uint256 nativeAmount = assetManager.toNativeDecFormat(assetAddr, _amount);
+        uint256 nativeAmount = assetManager.toNativeDecFormat(
+            assetAddr,
+            _amount
+        );
         pool.borrow(assetAddr, nativeAmount, 2, 0, address(this));
 
         // update user's income debts for bTokens and borrowed rewards
@@ -351,6 +361,7 @@ contract Sio2Adapter is
     // @notice Сalled by liquidators to pay off the user's debt in case of an unhealthy position
     // @param _debtToCover Debt amount
     // @param _user Address of the user whose position will be liquidated
+    // @return Amount of collateral tokens forwarded to liquidator
     function liquidationCall(
         string memory _debtAsset,
         address _user,
@@ -468,18 +479,10 @@ contract Sio2Adapter is
         address _user,
         string memory _assetName
     ) private {
-        (
-            ,
-            ,
-            ,
-            ,
-            ,
-            ,
-            ,
-            ,
+        ( , , , , , , , , 
             uint256 assetAccBTokensPerShare,
             uint256 assetAccBorrowedRewardsPerShare
-        ) = assetManager.assetInfo(_assetName);
+        ) = assetManager.assetInfo(_assetName); // prettier-ignore
 
         // update rewardDebt for user's bTokens
         userBTokensIncomeDebt[_user][_assetName] =
@@ -561,12 +564,16 @@ contract Sio2Adapter is
             "Too large amount, debt is smaller"
         );
 
-        uint256 nativeAmount = assetManager.toNativeDecFormat(assetAddress, _amount);
+        uint256 nativeAmount = assetManager.toNativeDecFormat(
+            assetAddress,
+            _amount
+        );
 
         if (assetAddress == address(WASTR)) {
             require(msg.value >= _amount, "msg.value must be >= _amount");
             // return diff back to user
-            if (msg.value > _amount) payable(msg.sender).sendValue(msg.value - _amount);
+            if (msg.value > _amount)
+                payable(msg.sender).sendValue(msg.value - _amount);
             // change astr to wastr
             WASTR.deposit{value: _amount}();
         } else {
@@ -606,11 +613,12 @@ contract Sio2Adapter is
         userBorrowedAssetID[_user][lastAsset] = assetId;
         bAssets[assetId] = bAssets[lastId];
         bAssets.pop();
+        delete userBorrowedAssetID[_user][_assetName];
         emit RemoveAssetFromUser(_user, _assetName);
     }
 
     // @notice Collect accumulated income of sio2 rewards
-    function _harvestRewards(uint256 _pendingRewards) public {
+    function _harvestRewards(uint256 _pendingRewards) private {
         address[] memory bTokens = assetManager.getBTokens();
         string[] memory assets = assetManager.getAssetsNames();
         // receiving rewards from incentives controller
@@ -634,18 +642,10 @@ contract Sio2Adapter is
             SHARES_PRECISION) / snastrToken.totalSupply();
 
         for (uint256 i; i < assets.length; i++) {
-            (
-                ,
-                ,
-                ,
-                address assetBTokenAddress,
-                ,
-                ,
-                ,
-                uint256 assetRewardsWeight,
-                ,
-
-            ) = assetManager.assetInfo(assets[i]);
+            ( , , , 
+                address assetBTokenAddress, , , , 
+                uint256 assetRewardsWeight, , 
+            ) = assetManager.assetInfo(assets[i]); // prettier-ignore
 
             IERC20Upgradeable bToken = IERC20Upgradeable(assetBTokenAddress);
 
@@ -662,18 +662,11 @@ contract Sio2Adapter is
         // set accumulated rewards per share for each borrowed asset
         // needed for sio2 rewards distribution
         for (uint256 i; i < assets.length; ) {
-            (
-                ,
-                ,
-                ,
-                address assetBTokenAddress,
-                ,
-                ,
+            ( , , ,
+                address assetBTokenAddress, , ,
                 uint256 assetTotalBorrowed,
-                uint256 assetRewardsWeight,
-                ,
-
-            ) = assetManager.assetInfo(assets[i]);
+                uint256 assetRewardsWeight, ,
+            ) = assetManager.assetInfo(assets[i]); // prettier-ignore
 
             if (assetTotalBorrowed > 0) {
                 IERC20Upgradeable bToken = IERC20Upgradeable(
@@ -727,18 +720,11 @@ contract Sio2Adapter is
 
         // update bToken debts
         for (uint256 i; i < assets.length; ) {
-            (
-                ,
-                ,
-                ,
-                address assetBTokenAddress,
-                ,
+            ( , , ,
+                address assetBTokenAddress, ,
                 uint256 assetLastBTokenBalance,
-                uint256 assetTotalBorrowed,
-                ,
-                ,
-
-            ) = assetManager.assetInfo(assets[i]);
+                uint256 assetTotalBorrowed, , ,
+            ) = assetManager.assetInfo(assets[i]); // prettier-ignore
 
             if (assetTotalBorrowed > 0) {
                 uint256 bTokenBalance = IERC20Upgradeable(assetBTokenAddress)
@@ -772,18 +758,10 @@ contract Sio2Adapter is
 
         // moving by borrowing assets for current user
         for (uint256 i; i < user.borrowedAssets.length; ) {
-            (
-                ,
-                string memory assetName,
-                ,
-                ,
-                ,
-                ,
-                ,
-                ,
+            ( , string memory assetName, , , , , , ,
                 uint256 assetAccBTokensPerShare,
                 uint256 assetAccBorrowedRewardsPerShare
-            ) = assetManager.assetInfo(user.borrowedAssets[i]);
+            ) = assetManager.assetInfo(user.borrowedAssets[i]); // prettier-ignore
 
             // update bToken debt
             uint256 debtToHarvest = (debts[_user][assetName] *

@@ -153,7 +153,7 @@ contract Sio2AdapterData is Initializable {
         if (availableToBorrowUSD == 0) {
             before[1] = 1e18;
         } else {
-            before[1] = debtUSD * 1e18 / availableToBorrowUSD;
+            before[1] = debtUSD * 1e18 / (debtUSD + availableToBorrowUSD);
         }
         if (currentCollateralUSD != 0 && debtUSD == 0) {
             before[2] = type(uint256).max;
@@ -168,7 +168,7 @@ contract Sio2AdapterData is Initializable {
             if (availableToBorrowUSD == 0) {
                 later[1] = 1e18;
             } else {
-                later[1] = (debtUSD + amountUSD) * 1e18 / availableToBorrowUSD;
+                later[1] = (debtUSD + amountUSD) * 1e18 / (debtUSD + availableToBorrowUSD);
             }
             later[2] = currentCollateralUSD * collateralLT * 1e18 / RISK_PARAMS_PRECISION / (debtUSD + amountUSD);
         } else {
@@ -178,7 +178,7 @@ contract Sio2AdapterData is Initializable {
                 if (availableToBorrowUSD == 0) {
                     later[1] = 1e18;
                 } else {
-                    later[1] = (debtUSD - amountUSD) * 1e18 / availableToBorrowUSD;
+                    later[1] = (debtUSD - amountUSD) * 1e18 / (debtUSD + availableToBorrowUSD);
                 }
                 
                 later[2] = currentCollateralUSD * collateralLT * 1e18 / RISK_PARAMS_PRECISION / (debtUSD - amountUSD);
