@@ -264,17 +264,4 @@ contract Sio2AdapterData is Initializable {
 
         return (vdToken.scaledTotalSupply(), sToken.scaledTotalSupply());
     }
-
-    /* to remove ❗️ */function setAssetsInfo() public {
-        assets[0xFFfFfFffFFfffFFfFFfFFFFFffFFFffffFfFFFfF] = AssetRatesInfo(0.65 ether, 0.08 ether, 1.5 ether);
-        assets[0xAeaaf0e2c81Af264101B9129C00F4440cCF0F720] = AssetRatesInfo(0.55 ether, 0.08 ether, 3 ether);
-        assets[0x733ebcC6DF85f8266349DEFD0980f8Ced9B45f35] = AssetRatesInfo(0.9 ether, 0.04 ether, 0.6 ether);
-        assets[0x6a2d262D56735DbA19Dd70682B39F6bE9a931D98] = AssetRatesInfo(0.9 ether, 0.04 ether, 0.6 ether);
-        assets[0x3795C36e7D12A8c252A20C5a7B455f7c57b60283] = AssetRatesInfo(0.9 ether, 0.04 ether, 0.6 ether);
-        assets[0x4Bf769b05E832FCdc9053fFFBC78Ca889aCb5E1E] = AssetRatesInfo(0.9 ether, 0.04 ether, 0.6 ether);
-        assets[0x6De33698e9e9b787e09d3Bd7771ef63557E148bb] = AssetRatesInfo(0.9 ether, 0.04 ether, 0.6 ether);
-        assets[0x81ECac0D6Be0550A00FF064a4f9dd2400585FE9c] = AssetRatesInfo(0.7 ether, 0.08 ether, 1 ether);
-        assets[0xad543f18cFf85c77E140E3E5E3c3392f6Ba9d5CA] = AssetRatesInfo(0.65 ether, 0.08 ether, 1 ether);
-        assets[0x7f27352D5F83Db87a5A3E00f4B07Cc2138D8ee52] = AssetRatesInfo(0.55 ether, 0.08 ether, 1.5 ether);
-    }    
 }
