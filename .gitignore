@@ -1,6 +1,7 @@
 # Compiler files
 cache/
 out/
+artifacts/
 
 # Ignores development broadcast logs
 !/broadcast
@@ -10,6 +11,8 @@ out/
 # Dotenv file
 .env
 
-Some.t.sol
-/src/Some.sol
-/flattened
+# Ignore flattened files
+flattened.txt
+
+# Coverage
+lcov.info
