@@ -6,7 +6,7 @@ Sio2Adapter acts as an intermediary between Algem users and the SiO2 lending pro
 
 The adapter consists of three contracts:
 
-`Sio2Adapter`.
+`Sio2Adapter`
 The primary contract contains the logic related to deposits and loans, balance management, and liquidation.
 Main functions:
 - supply
@@ -18,9 +18,8 @@ Main functions:
 - repayFull
 - withdraw
 
-Sio2AdapterAssetManager
+`Sio2AdapterAssetManager`
+The auxiliary contract contains all the necessary logic to handle asset-related operations. This includes adding/removing tokens, monitoring internal asset balances, calculating estimate user balances, and controlling asset parameters.
 
-
-Sio2AdapterData
-
-### Tests
+`Sio2AdapterData`
+The auxiliary contract enables obtaining a set of values necessary for display in the user interface, such as APR, APY, changes in debt and deposit, based on the user-inputted token amount.
