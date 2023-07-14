@@ -1,4 +1,4 @@
-![Algem](https://github.com/[azhlbn]/[LendingAdapter]/header_algem_logo.png?raw=true)
+![Algem](https://github.com/azhlbn/LendingAdapter/header_algem_logo.png)
 
 
 ## Sio2 Lending Adapter
