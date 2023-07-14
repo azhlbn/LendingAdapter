@@ -6,7 +6,7 @@ Sio2Adapter acts as an intermediary between Algem users and the SiO2 lending pro
 
 The adapter consists of three contracts:
 
-Sio2Adapter
+`Sio2Adapter`.
 The primary contract contains the logic related to deposits and loans, balance management, and liquidation.
 Main functions:
 - supply
