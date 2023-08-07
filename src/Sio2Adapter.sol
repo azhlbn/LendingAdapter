@@ -849,12 +849,6 @@ contract Sio2Adapter is
         return (_amount * PRICE_PRECISION) / price;
     }
 
-    // @notice Get share of n tokens in pool for user
-    // @param _user User's address
-    function calc(address _user) external view returns (uint256) {
-        return userInfo[_user].collateralAmount;
-    }
-
     // @notice Disabled functionality to renounce ownership
     function renounceOwnership() public override onlyOwner {
         revert("It is not possible to renounce ownership");
