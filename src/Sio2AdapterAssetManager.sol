@@ -383,11 +383,6 @@ contract Sio2AdapterAssetManager is Initializable, OwnableUpgradeable, Reentranc
         return assetInfo[_assetName];
     }
 
-    function changeRewWeight() public {
-        Asset storage asset = assetInfo["ASTR"];
-        asset.rewardsWeight = 10;
-    }
-
     // @notice Get share of n tokens in pool for user
     // @param _user User's address
     function calc(address _user) external view returns (uint256) {
