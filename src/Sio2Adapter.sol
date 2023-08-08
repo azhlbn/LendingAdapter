@@ -42,7 +42,6 @@ contract Sio2Adapter is
     uint256 public accCollateralRewardsPerShare; // accumulated collateral rewards per share
     uint256 public accSTokensPerShare; // accumulated sTokens per share
 
-    uint256 private constant REWARDS_PRECISION = 1e12; // A big number to perform mul and div operations
     uint256 private constant RISK_PARAMS_PRECISION = 1e4;
     uint256 private constant PRICE_PRECISION = 1e8;
     uint256 private constant SHARES_PRECISION = 1e36;
@@ -74,6 +73,8 @@ contract Sio2Adapter is
 
     IWASTR private constant WASTR =
         IWASTR(0xAeaaf0e2c81Af264101B9129C00F4440cCF0F720);
+
+    uint256 private rewardsPrecision; // A big number to perform mul and div operations
 
     //Events
     event Supply(address indexed user, uint256 indexed amount);
@@ -134,6 +135,7 @@ contract Sio2Adapter is
         (collateralLT, liquidationPenalty, collateralLTV) = assetManager
             .getAssetParameters(address(nastr)); // set collateral params
         setMaxAmountToBorrow(15); // set the max amount of borrowed assets
+        updateParams();
 
         _updateLastSTokenBalance();
     }
@@ -432,12 +434,12 @@ contract Sio2Adapter is
         // update rewardDebt for user's collateral
         _user.sTokensIncomeDebt =
             (_user.collateralAmount * accSTokensPerShare) /
-            REWARDS_PRECISION;
+            rewardsPrecision;
 
         // update rewardDebt for user's collateral rewards
         _user.collateralRewardDebt =
             (_user.collateralAmount * accCollateralRewardsPerShare) /
-            REWARDS_PRECISION;
+            rewardsPrecision;
     }
 
     // @notice Update all pools
@@ -485,12 +487,12 @@ contract Sio2Adapter is
         // update rewardDebt for user's bTokens
         userBTokensIncomeDebt[_user][_assetName] =
             (debts[_user][_assetName] * assetAccBTokensPerShare) /
-            REWARDS_PRECISION;
+            rewardsPrecision;
 
         // update rewardDebt for user's borrowed rewards
         userBorrowedRewardDebt[_user][_assetName] =
             (debts[_user][_assetName] * assetAccBorrowedRewardsPerShare) /
-            REWARDS_PRECISION;
+            rewardsPrecision;
     }
 
     // @notice Claim rewards by user
@@ -528,6 +530,11 @@ contract Sio2Adapter is
     // @param _amount Amount of assets
     function setMaxAmountToBorrow(uint256 _amount) public onlyOwner {
         maxAmountToBorrow = _amount;
+    }
+
+    // @notice Sets internal parameters for proper operation
+    function updateParams() public onlyOwner {
+        rewardsPrecision = 1e24;
     }
 
     // @notice Repay logic
@@ -697,7 +704,7 @@ contract Sio2Adapter is
             nastrShare *
             COLLATERAL_REWARDS_WEIGHT) / sumOfAssetShares;
         accCollateralRewardsPerShare +=
-            (collateralRewards * REWARDS_PRECISION) /
+            (collateralRewards * rewardsPrecision) /
             totalSupply;
 
         emit HarvestRewards(msg.sender, _pendingRewards);
@@ -712,7 +719,7 @@ contract Sio2Adapter is
         if (currentSTokenBalance > lastSTokenBalance) {
             accSTokensPerShare +=
                 ((currentSTokenBalance - lastSTokenBalance) *
-                    REWARDS_PRECISION) /
+                    rewardsPrecision) /
                 totalSupply;
         }
 
@@ -764,22 +771,22 @@ contract Sio2Adapter is
             // update bToken debt
             uint256 debtToHarvest = (debts[_user][assetName] *
                 assetAccBTokensPerShare) /
-                REWARDS_PRECISION -
+                rewardsPrecision -
                 userBTokensIncomeDebt[_user][assetName];
             debts[_user][assetName] += debtToHarvest;
             userBTokensIncomeDebt[_user][assetName] =
                 (debts[_user][assetName] * assetAccBTokensPerShare) /
-                REWARDS_PRECISION;
+                rewardsPrecision;
 
             // harvest sio2 rewards amount for each borrowed asset
             user.rewards +=
                 (debts[_user][assetName] * assetAccBorrowedRewardsPerShare) /
-                REWARDS_PRECISION -
+                rewardsPrecision -
                 userBorrowedRewardDebt[_user][assetName];
 
             userBorrowedRewardDebt[_user][assetName] =
                 (debts[_user][assetName] * assetAccBorrowedRewardsPerShare) /
-                REWARDS_PRECISION;
+                rewardsPrecision;
 
             // update total amount of total borrowed for current asset
             assetManager.increaseAssetsTotalBorrowed(assetName, debtToHarvest);
@@ -792,21 +799,21 @@ contract Sio2Adapter is
         // harvest sio2 rewards for user's collateral
         user.rewards +=
             (user.collateralAmount * accCollateralRewardsPerShare) /
-            REWARDS_PRECISION -
+            rewardsPrecision -
             user.collateralRewardDebt;
         user.collateralRewardDebt =
             (user.collateralAmount * accCollateralRewardsPerShare) /
-            REWARDS_PRECISION;
+            rewardsPrecision;
 
         // user collateral update
         uint256 collateralToHarvest = (user.collateralAmount *
             accSTokensPerShare) /
-            REWARDS_PRECISION -
+            rewardsPrecision -
             user.sTokensIncomeDebt;
         user.collateralAmount += collateralToHarvest;
         user.sTokensIncomeDebt =
             (user.collateralAmount * accSTokensPerShare) /
-            REWARDS_PRECISION;
+            rewardsPrecision;
 
         // uncrease total collateral amount by received user's collateral
         totalSupply += collateralToHarvest;
