@@ -164,9 +164,8 @@ contract Sio2Adapter is
         User storage user = userInfo[msg.sender];
 
         // New user check. Add new if there is no such
-        if (userInfo[msg.sender].addr == address(0)) {
+        if (userInfo[msg.sender].id == 0 && user.collateralAmount == 0 && user.rewards == 0) {
             user.id = users.length;
-            user.addr = msg.sender;
             users.push(msg.sender);
         }
 
@@ -290,7 +289,7 @@ contract Sio2Adapter is
         pool.borrow(assetAddr, nativeAmount, 2, 0, address(this));
 
         // update user's income debts for bTokens and borrowed rewards
-        _updateUserBorrowedIncomeDebts(user.addr, _assetName);
+        _updateUserBorrowedIncomeDebts(msg.sender, _assetName);
 
         // update bToken's last balance
         assetManager.updateLastBTokenBalance(_assetName);
@@ -336,10 +335,9 @@ contract Sio2Adapter is
 
         User storage user = userInfo[msg.sender];
 
-        // check for new user. And add to arr if there is no such
-        if (userInfo[msg.sender].addr == address(0)) {
+        // New user check. Add new if there is no such
+        if (userInfo[msg.sender].id == 0 && user.collateralAmount == 0 && user.rewards == 0) {
             user.id = users.length;
-            user.addr = msg.sender;
             users.push(msg.sender);
         }
 
