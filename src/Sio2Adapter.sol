@@ -308,7 +308,7 @@ contract Sio2Adapter is
     /// @dev when user calls repay(), _user and msg.sender are the same
     ///      and there is difference when liquidator calling function
     /// @param _assetName Asset name
-    /// @param _amount Amount of tokens
+    /// @param _amount Amount of tokens in 18 decimals
     function repayPart(
         string memory _assetName,
         uint256 _amount
