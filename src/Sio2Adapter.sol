@@ -263,8 +263,11 @@ contract Sio2Adapter is
         );
         require(assetAddr != address(0), "Wrong asset!");
 
-        debts[msg.sender][_assetName] += _amount;
-        assetManager.increaseAssetsTotalBorrowed(_assetName, _amount);
+        uint256 nativeAmount = assetManager.toNativeDecFormat(assetAddr, _amount);
+        uint256 roundedAmount = assetManager.to18DecFormat(assetAddr, nativeAmount);
+
+        debts[msg.sender][_assetName] += roundedAmount;
+        assetManager.increaseAssetsTotalBorrowed(_assetName, roundedAmount);
 
         User storage user = userInfo[msg.sender];
 
@@ -285,10 +288,6 @@ contract Sio2Adapter is
             user.borrowedAssets.push(_assetName);
         }
 
-        uint256 nativeAmount = assetManager.toNativeDecFormat(
-            assetAddr,
-            _amount
-        );
         pool.borrow(assetAddr, nativeAmount, 2, 0, address(this));
 
         // update user's income debts for bTokens and borrowed rewards
