@@ -556,6 +556,7 @@ contract Sio2Adapter is
             userBal = assetManager.to18DecFormat(assetAddress, userBal);
 
             require(userBal >= _amount, "Not enough wallet balance to repay");
+            require(msg.value == 0, "Sending ASTR not allowed for this asset");
         }
 
         // check balance of user or liquidator
