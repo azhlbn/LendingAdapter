@@ -53,8 +53,7 @@ contract Sio2Adapter is
     mapping(address => mapping(string => uint256)) public debts;
     mapping(address => mapping(string => uint256)) public userBorrowedAssetID;
     mapping(address => mapping(string => uint256)) public userBTokensIncomeDebt;
-    mapping(address => mapping(string => uint256))
-        public userBorrowedRewardDebt;
+    mapping(address => mapping(string => uint256)) public userBorrowedRewardDebt;
 
     address[] public users;
 
