@@ -170,15 +170,15 @@ contract Sio2Adapter is
             users.push(msg.sender);
         }
 
+        user.collateralAmount += _amount;
+        totalSupply += _amount;
+
         // take nastr from user
         nastr.safeTransferFrom(msg.sender, address(this), _amount);
 
         // deposit nastr to lending pool
         nastr.approve(address(pool), _amount);
         pool.deposit(address(nastr), _amount, address(this), 0);
-
-        user.collateralAmount += _amount;
-        totalSupply += _amount;
 
         assetManager.updateBalanceInAdaptersDistributor(msg.sender);
 
@@ -220,12 +220,12 @@ contract Sio2Adapter is
             address(this)
         );
 
-        _updateLastSTokenBalance();
-
         User storage user = userInfo[_user];
 
         totalSupply -= withdrawnAmount;
         user.collateralAmount -= withdrawnAmount;
+
+        _updateLastSTokenBalance();
 
         assetManager.updateBalanceInAdaptersDistributor(_user);
 
@@ -343,10 +343,10 @@ contract Sio2Adapter is
             users.push(msg.sender);
         }
 
-        snastrToken.safeTransferFrom(msg.sender, address(this), _amount);
-
         user.collateralAmount += _amount;
         totalSupply += _amount;
+        
+        snastrToken.safeTransferFrom(msg.sender, address(this), _amount);
 
         assetManager.updateBalanceInAdaptersDistributor(msg.sender);
 
