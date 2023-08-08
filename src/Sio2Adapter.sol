@@ -345,7 +345,7 @@ contract Sio2Adapter is
 
         user.collateralAmount += _amount;
         totalSupply += _amount;
-        
+
         snastrToken.safeTransferFrom(msg.sender, address(this), _amount);
 
         assetManager.updateBalanceInAdaptersDistributor(msg.sender);
@@ -814,7 +814,7 @@ contract Sio2Adapter is
             (user.collateralAmount * accSTokensPerShare) /
             rewardsPrecision;
 
-        // uncrease total collateral amount by received user's collateral
+        // increase the total amount of collateral by the received user collateral
         totalSupply += collateralToHarvest;
 
         emit UpdateUserRewards(_user);
