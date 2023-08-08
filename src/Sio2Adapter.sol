@@ -152,8 +152,8 @@ contract Sio2Adapter is
         );
     }
 
-    // @notice Supply nASTR tokens as collateral
-    // @param _amount Number of nASTR tokens sended to supply
+    /// @notice Supply nASTR tokens as collateral
+    /// @param _amount Number of nASTR tokens sended to supply
     function supply(uint256 _amount) external update(msg.sender) nonReentrant {
         require(_amount > 0, "Should be greater than zero");
         require(
@@ -187,15 +187,15 @@ contract Sio2Adapter is
         emit Supply(msg.sender, _amount);
     }
 
-    // @notice Used to withdraw a deposit by a user
-    // @param _amount Amount of tokens to withdraw
+    /// @notice Used to withdraw a deposit by a user
+    /// @param _amount Amount of tokens to withdraw
     function withdraw(uint256 _amount) external update(msg.sender) {
         _withdraw(msg.sender, _amount);
     }
 
-    // @notice Used to withdraw deposit by a user or liquidator
-    // @param _user Deposit holder's address
-    // @param _amount Amount of tokens to withdraw
+    /// @notice Used to withdraw deposit by a user or liquidator
+    /// @param _user Deposit holder's address
+    /// @param _amount Amount of tokens to withdraw
     function _withdraw(
         address _user,
         uint256 _amount
@@ -242,9 +242,9 @@ contract Sio2Adapter is
         return withdrawnAmount;
     }
 
-    // @notice Used to borrow an asset by a user
-    // @param _assetName Borrowed token name
-    // @param _amount Amount of borrowed token in 18 decimals format
+    /// @notice Used to borrow an asset by a user
+    /// @param _assetName Borrowed token name
+    /// @param _amount Amount of borrowed token in 18 decimals format
     function borrow(
         string memory _assetName,
         uint256 _amount
@@ -305,10 +305,10 @@ contract Sio2Adapter is
         emit Borrow(msg.sender, _assetName, _amount);
     }
 
-    // @dev when user calls repay(), _user and msg.sender are the same
-    //      and there is difference when liquidator calling function
-    // @param _assetName Asset name
-    // @param _amount Amount of tokens
+    /// @dev when user calls repay(), _user and msg.sender are the same
+    ///      and there is difference when liquidator calling function
+    /// @param _assetName Asset name
+    /// @param _amount Amount of tokens
     function repayPart(
         string memory _assetName,
         uint256 _amount
@@ -316,8 +316,8 @@ contract Sio2Adapter is
         _repay(_assetName, _amount, msg.sender);
     }
 
-    // @notice Allows the user to fully repay his debt
-    // @param _assetName Asset name
+    /// @notice Allows the user to fully repay his debt
+    /// @param _assetName Asset name
     function repayFull(
         string memory _assetName
     ) external payable update(msg.sender) nonReentrant {
@@ -326,8 +326,8 @@ contract Sio2Adapter is
         _repay(_assetName, fullDebtAmount, msg.sender);
     }
 
-    // @notice Needed to transfer collateral position to adapter
-    // @param _amount Amount of supply tokens to deposit
+    /// @notice Needed to transfer collateral position to adapter
+    /// @param _amount Amount of supply tokens to deposit
     function addSTokens(uint256 _amount) external update(msg.sender) {
         require(
             snastrToken.balanceOf(msg.sender) >= _amount,
@@ -356,10 +356,10 @@ contract Sio2Adapter is
         emit AddSToken(msg.sender, _amount);
     }
 
-    // @notice Сalled by liquidators to pay off the user's debt in case of an unhealthy position
-    // @param _debtToCover Debt amount
-    // @param _user Address of the user whose position will be liquidated
-    // @return Amount of collateral tokens forwarded to liquidator
+    /// @notice Сalled by liquidators to pay off the user's debt in case of an unhealthy position
+    /// @param _debtToCover Debt amount
+    /// @param _user Address of the user whose position will be liquidated
+    /// @return Amount of collateral tokens forwarded to liquidator
     function liquidationCall(
         string memory _debtAsset,
         address _user,
@@ -409,9 +409,9 @@ contract Sio2Adapter is
         return collateralToLiquidator;
     }
 
-    // @dev HF = sum(collateral_i * liqThreshold_i) / totalBorrowsInUSD
-    // @notice to get HF for check healthy of user position
-    // @param _user User address
+    /// @dev HF = sum(collateral_i * liqThreshold_i) / totalBorrowsInUSD
+    /// @notice to get HF for check healthy of user position
+    /// @param _user User address
     function getLiquidationParameters(
         address _user
     ) public update(_user) returns (uint256 hf, uint256 debtUSD) {
@@ -427,7 +427,7 @@ contract Sio2Adapter is
             debtUSD;
     }
 
-    // @notice Updates user's s-tokens balance
+    /// @notice Updates user's s-tokens balance
     function _updateUserCollateralIncomeDebts(User storage _user) private {
         // update rewardDebt for user's collateral
         _user.sTokensIncomeDebt =
@@ -440,7 +440,7 @@ contract Sio2Adapter is
             rewardsPrecision;
     }
 
-    // @notice Update all pools
+    /// @notice Update all pools
     function _updates(address _user) private {
         // check sio2 rewards
         uint256 pendingRewards = incentivesController.getUserUnclaimedRewards(
@@ -463,7 +463,7 @@ contract Sio2Adapter is
         emit Updates(msg.sender, _user);
     }
 
-    // @notice Update last S token balance
+    /// @notice Update last S token balance
     function _updateLastSTokenBalance() private {
         uint256 currentBalance = snastrToken.balanceOf(address(this));
         if (lastSTokenBalance != currentBalance) {
@@ -472,7 +472,7 @@ contract Sio2Adapter is
         }
     }
 
-    // @notice Updates user's b-tokens balance
+    /// @notice Updates user's b-tokens balance
     function _updateUserBorrowedIncomeDebts(
         address _user,
         string memory _assetName
@@ -493,7 +493,7 @@ contract Sio2Adapter is
             rewardsPrecision;
     }
 
-    // @notice Claim rewards by user
+    /// @notice Claim rewards by user
     function claimRewards() external update(msg.sender) {
         User storage user = userInfo[msg.sender];
         require(user.rewards > 0, "User has no any rewards");
@@ -508,8 +508,8 @@ contract Sio2Adapter is
         emit ClaimRewards(msg.sender, rewardsToClaim);
     }
 
-    // @notice Withdraw revenue by owner
-    // @param _amount Amount of sio2 tokens
+    /// @notice Withdraw revenue by owner
+    /// @param _amount Amount of sio2 tokens
     function withdrawRevenue(uint256 _amount) external onlyOwner {
         require(_amount > 0, "Should be greater than zero");
         require(
@@ -524,18 +524,18 @@ contract Sio2Adapter is
         emit WithdrawRevenue(msg.sender, _amount);
     }
 
-    // @notice Sets the maximum amount of borrowed assets by the owner
-    // @param _amount Amount of assets
+    /// @notice Sets the maximum amount of borrowed assets by the owner
+    /// @param _amount Amount of assets
     function setMaxAmountToBorrow(uint256 _amount) public onlyOwner {
         maxAmountToBorrow = _amount;
     }
 
-    // @notice Sets internal parameters for proper operation
+    /// @notice Sets internal parameters for proper operation
     function updateParams() public onlyOwner {
         rewardsPrecision = 1e24;
     }
 
-    // @notice Repay logic
+    /// @notice Repay logic
     function _repay(
         string memory _assetName,
         uint256 _amount,
@@ -605,7 +605,7 @@ contract Sio2Adapter is
         emit Repay(msg.sender, _user, _assetName, _amount);
     }
 
-    // @notice Removes asset from user's assets list
+    /// @notice Removes asset from user's assets list
     function _removeAssetFromUser(
         string memory _assetName,
         address _user
@@ -621,7 +621,7 @@ contract Sio2Adapter is
         emit RemoveAssetFromUser(_user, _assetName);
     }
 
-    // @notice Collect accumulated income of sio2 rewards
+    /// @notice Collect accumulated income of sio2 rewards
     function _harvestRewards(uint256 _pendingRewards) private {
         address[] memory bTokens = assetManager.getBTokens();
         string[] memory assets = assetManager.getAssetsNames();
@@ -709,7 +709,7 @@ contract Sio2Adapter is
         emit HarvestRewards(msg.sender, _pendingRewards);
     }
 
-    // @notice Collect accumulated b-tokens and s-tokens
+    /// @notice Collect accumulated b-tokens and s-tokens
     function _updatePools() private {
         uint256 currentSTokenBalance = snastrToken.balanceOf(address(this));
         string[] memory assets = assetManager.getAssetsNames();
@@ -756,7 +756,7 @@ contract Sio2Adapter is
         emit UpdatePools(msg.sender);
     }
 
-    // @notice Update balances of b-tokens, s-tokens and rewards for user
+    /// @notice Update balances of b-tokens, s-tokens and rewards for user
     function _updateUserRewards(address _user) private {
         User storage user = userInfo[_user];
 
@@ -820,7 +820,7 @@ contract Sio2Adapter is
         emit UpdateUserRewards(_user);
     }
 
-    // @notice Removes user if his deposit amount equal to zero
+    /// @notice Removes user if his deposit amount equal to zero
     function _removeUser() private {
         uint256 lastId = users.length - 1;
         uint256 userId = userInfo[msg.sender].id;
@@ -831,10 +831,10 @@ contract Sio2Adapter is
         emit RemoveUser(msg.sender);
     }
 
-    // @notice Convert tokens value to USD
-    // @param _asset Asset address
-    // @param _amount Amount of token with 18 decimals
-    // @return USD price with 18 decimals
+    /// @notice Convert tokens value to USD
+    /// @param _asset Asset address
+    /// @param _amount Amount of token with 18 decimals
+    /// @return USD price with 18 decimals
     function toUSD(
         address _asset,
         uint256 _amount
@@ -843,10 +843,10 @@ contract Sio2Adapter is
         return (_amount * price) / PRICE_PRECISION;
     }
 
-    // @notice Convert tokens value from USD
-    // @param _asset Asset address
-    // @param _amount Price in USD with 18 decimals
-    // @return Token amount with 18 decimals
+    /// @notice Convert tokens value from USD
+    /// @param _asset Asset address
+    /// @param _amount Price in USD with 18 decimals
+    /// @return Token amount with 18 decimals
     function fromUSD(
         address _asset,
         uint256 _amount
@@ -855,24 +855,24 @@ contract Sio2Adapter is
         return (_amount * PRICE_PRECISION) / price;
     }
 
-    // @notice Disabled functionality to renounce ownership
+    /// @notice Disabled functionality to renounce ownership
     function renounceOwnership() public override onlyOwner {
         revert("It is not possible to renounce ownership");
     }
 
-    // @notice Get user info
-    // @param _user User address
-    // @return User's params
+    /// @notice Get user info
+    /// @param _user User address
+    /// @return User's params
     function getUser(address _user) external view returns (User memory) {
         return userInfo[_user];
     }
 
-    // @notice Get users list
+    /// @notice Get users list
     function getUsers() external view returns (address[] memory) {
         return users;
     }
 
-    // @notice Get length of users array
+    /// @notice Get length of users array
     function getUsersCount() external view returns (uint256) {
         return users.length;
     }
