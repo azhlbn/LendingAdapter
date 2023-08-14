@@ -45,7 +45,6 @@ contract Sio2Adapter is
     uint256 private constant RISK_PARAMS_PRECISION = 1e4;
     uint256 private constant PRICE_PRECISION = 1e8;
     uint256 private constant SHARES_PRECISION = 1e36;
-    uint256 private constant COLLATERAL_REWARDS_WEIGHT = 5; // 5% of all sio2 collateral rewards go to the nASTR pool
     uint256 public constant REVENUE_FEE = 10; // 10% of rewards goes to the revenue pool
 
     // mapping(string => Asset) public assetInfo;
@@ -74,6 +73,7 @@ contract Sio2Adapter is
         IWASTR(0xAeaaf0e2c81Af264101B9129C00F4440cCF0F720);
 
     uint256 private rewardsPrecision; // A big number to perform mul and div operations
+    uint256 public collateralRewardsWeight; // by default 5% of all sio2 collateral rewards go to the nASTR pool
 
     //Events
     event Supply(address indexed user, uint256 indexed amount);
@@ -531,6 +531,7 @@ contract Sio2Adapter is
     /// @notice Sets internal parameters for proper operation
     function updateParams() public onlyOwner {
         rewardsPrecision = 1e24;
+        collateralRewardsWeight = assetManager.getAssetWeight(address(nastr));
     }
 
     /// @notice Repay logic
@@ -640,7 +641,7 @@ contract Sio2Adapter is
 
         // get total asset shares in pool to further calculate rewards for each asset
         uint256 sumOfAssetShares = (snastrToken.balanceOf(address(this)) *
-            COLLATERAL_REWARDS_WEIGHT *
+            collateralRewardsWeight *
             SHARES_PRECISION) / snastrToken.totalSupply();
 
         for (uint256 i; i < assets.length; i++) {
@@ -699,7 +700,7 @@ contract Sio2Adapter is
             SHARES_PRECISION) / snastrToken.totalSupply();
         uint256 collateralRewards = (rewardsToDistribute *
             nastrShare *
-            COLLATERAL_REWARDS_WEIGHT) / sumOfAssetShares;
+            collateralRewardsWeight) / sumOfAssetShares;
         accCollateralRewardsPerShare +=
             (collateralRewards * rewardsPrecision) /
             totalSupply;

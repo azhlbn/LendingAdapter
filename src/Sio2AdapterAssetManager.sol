@@ -389,4 +389,21 @@ contract Sio2AdapterAssetManager is Initializable, OwnableUpgradeable, Reentranc
         Sio2Adapter.User memory user = adapter.getUser(_user);
         return user.collateralAmount;
     }
+
+    function getAssetWeight(address asset) external view returns (uint256) {
+        ISio2IncentivesController ic = ISio2IncentivesController(adapter.incentivesController());
+
+        address[] memory assets = pool.getReservesList();
+        uint256 sumOfCollateralWeights;
+
+        for (uint256 i; i < assets.length; i++) {
+            DataTypes.ReserveData memory data = pool.getReserveData(assets[i]);
+            address sTokenAddress = data.STokenAddress;
+            (uint256 initSupply, , , , ) = ic.assets(sTokenAddress);
+            sumOfCollateralWeights += initSupply;
+        }
+
+        (uint256 assetWeight, , , , ) = ic.assets(asset);
+        return assetWeight * 1e2 / sumOfCollateralWeights;
+    }
 }
