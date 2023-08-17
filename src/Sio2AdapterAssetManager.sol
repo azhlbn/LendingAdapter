@@ -23,6 +23,7 @@ contract Sio2AdapterAssetManager is Initializable, OwnableUpgradeable, Reentranc
 
     uint256 public maxNumberOfAssets;
     uint256 private rewardsPrecision; // A big number to perform mul and div operations
+    address private _grantedOwner;
 
     struct Asset {
         uint256 id;
@@ -45,6 +46,8 @@ contract Sio2AdapterAssetManager is Initializable, OwnableUpgradeable, Reentranc
     event SetAdapter(address who, address adapterAddress);
     event UpdateBalSuccess(address user, string utilityName, uint256 amount);
     event UpdateBalError(address user, string utilityName, uint256 amount, string reason);
+    event Paused(address account);
+    event Unpaused(address account);
 
     /// @custom:oz-upgrades-unsafe-allow constructor
     constructor() {
@@ -216,6 +219,39 @@ contract Sio2AdapterAssetManager is Initializable, OwnableUpgradeable, Reentranc
             unchecked { ++i; }
         }
     }
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    // ADMIN LOGIC
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
+    /// @notice propose a new owner
+    /// @param _newOwner => new contract owner
+    function grantOwnership(address _newOwner) external onlyOwner {
+        require(_newOwner != address(0), "Owner cannot be a zero address");
+        require(_newOwner != owner(), "New owner shouldn't match the current one");
+        _grantedOwner = _newOwner;
+    }
+
+    /// @notice claim ownership by granted address
+    function claimOwnership() external {
+        require(_grantedOwner == msg.sender, "Caller is not the granted owner");
+        _transferOwnership(_grantedOwner);
+        _grantedOwner = address(0);
+    }
+
+    /// @notice Disabling transfer and renounce of ownership for security reasons 
+    function transferOwnership(address) public override { revert("Not allowed"); } 
+
+    /// @notice Disabling transfer and renounce of ownership for security reasons 
+    function renounceOwnership() public override { revert("Not allowed"); }
+
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    // READERS
+    //
+    ////////////////////////////////////////////////////////////////////////////
 
     /// @notice Check user collateral amount without state updates
     /// @param _userAddr User address
