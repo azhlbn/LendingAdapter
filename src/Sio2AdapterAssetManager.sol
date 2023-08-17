@@ -11,6 +11,7 @@ import "./interfaces/IAdaptersDistributor.sol";
 contract Sio2AdapterAssetManager is Initializable, OwnableUpgradeable, ReentrancyGuardUpgradeable {
     using ReserveConfiguration for DataTypes.ReserveConfigurationMap; // used to extract risk parameters of an asset
 
+    //Interfaces
     ISio2LendingPool public pool;
     Sio2Adapter public adapter;
 
@@ -22,8 +23,6 @@ contract Sio2AdapterAssetManager is Initializable, OwnableUpgradeable, Reentranc
     mapping(string => Asset) public assetInfo;
     mapping(address => bool) public bTokenExist;
     mapping(string => bool) public assetNameExist;
-
-    uint256 public maxNumberOfAssets;
 
     struct Asset {
         uint256 id;
@@ -39,7 +38,6 @@ contract Sio2AdapterAssetManager is Initializable, OwnableUpgradeable, Reentranc
     }
 
     IAdaptersDistributor public constant ADAPTERS_DISTRIBUTOR = IAdaptersDistributor(0x294Bb6b8e692543f373383A84A1f296D3C297aEf);
-
 
     event AddAsset(address owner, string indexed assetName, address indexed assetAddress);
     event RemoveAsset(address owner, string indexed assetName);
@@ -72,7 +70,7 @@ contract Sio2AdapterAssetManager is Initializable, OwnableUpgradeable, Reentranc
         _;
     }
 
-    /// @notice Allows owner to add new asset
+    // @notice Allows owner to add new asset
     function addAsset(
         address _assetAddress,
         address _bToken,
@@ -82,7 +80,7 @@ contract Sio2AdapterAssetManager is Initializable, OwnableUpgradeable, Reentranc
         addAsset(_assetName, _assetAddress, _bToken, _rewardsWeight);
     }
 
-    /// @notice Allows owner to add new asset
+    // @notice Allows owner to add new asset
     function addAsset(
         string memory _assetName,
         address _assetAddress,
@@ -93,7 +91,6 @@ contract Sio2AdapterAssetManager is Initializable, OwnableUpgradeable, Reentranc
         require(keccak256(abi.encodePacked(_assetName)) != keccak256(""), "Empty asset name");
         require(!bTokenExist[_bToken], "Such bToken address already added");
         require(!assetNameExist[_assetName], "Such asset name already added");
-        require(assets.length < maxNumberOfAssets, "Assets limit reached");
 
         // get liquidationThreshold for asset from sio2
         DataTypes.ReserveConfigurationMap memory data = pool.getConfiguration(_assetAddress);
@@ -124,7 +121,7 @@ contract Sio2AdapterAssetManager is Initializable, OwnableUpgradeable, Reentranc
         emit AddAsset(msg.sender, _assetName, _assetAddress);
     }
 
-    /// @notice Removes an asset
+    // @notice Removes an asset
     function removeAsset(string memory _assetName) external onlyOwner {
         require(
             assetInfo[_assetName].addr != address(0),
@@ -199,16 +196,9 @@ contract Sio2AdapterAssetManager is Initializable, OwnableUpgradeable, Reentranc
         }
     }
 
-    /// @notice Sets the maximum number of assets
-    /// @param _num Number of assets. Equal to 30 by default
-    function setMaxNumberOfAssets(uint256 _num) external onlyOwner {
-        require(_num > 0, "Cannot equal to zero");
-        maxNumberOfAssets = _num;
-    }
-
-    /// @notice Check user collateral amount without state updates
-    /// @param _userAddr User address
-    /// @return User's collateral value in USD
+    // @notice Check user collateral amount without state updates
+    // @param _userAddr User address
+    // @return User's collateral value in USD
     function calcEstimateUserCollateralUSD(
         address _userAddr
     ) public view returns (uint256 coll) {
@@ -233,9 +223,9 @@ contract Sio2AdapterAssetManager is Initializable, OwnableUpgradeable, Reentranc
         coll = adapter.toUSD(address(adapter.nastr()), estUserCollateral);
     }
 
-    /// @notice Check user debt amount without state updates
-    /// @param _userAddr User address
-    /// @return User's debt value in USD
+    // @notice Check user debt amount without state updates
+    // @param _userAddr User address
+    // @return User's debt value in USD
     function calcEstimateUserDebtUSD(
         address _userAddr
     ) public view returns (uint256 debtUSD) {
@@ -273,10 +263,10 @@ contract Sio2AdapterAssetManager is Initializable, OwnableUpgradeable, Reentranc
         return estDebt;
     }
 
-    /// @notice To get the available amount to borrow expressed in usd
-    /// @param _userAddr User addresss
-    /// @return toBorrow Amount of collateral in usd available to borrow
-    /// @return toWithdraw Amount of collateral in usd available to withdraw
+    // @notice To get the available amount to borrow expressed in usd
+    // @param _userAddr User addresss
+    // @return toBorrow Amount of collateral in usd available to borrow
+    // @return toWithdraw Amount of collateral in usd available to withdraw
     function availableCollateralUSD(
         address _userAddr
     ) public view returns (uint256 toBorrow, uint256 toWithdraw) {
@@ -304,8 +294,10 @@ contract Sio2AdapterAssetManager is Initializable, OwnableUpgradeable, Reentranc
         return assetInfo[assetName].rewardsWeight;
     }
 
-    /// @notice Get available tokens to borrow for user and asset
-    /// @param _user User address
+    // @notice Get available tokens to borrow for user and asset
+    // @param _user User address
+    // @param _assetName Asset name
+    // @return amount Number of tokens to borrow
     function getAvailableTokensToBorrow(
         address _user
     ) external view returns (uint256[] memory) {
@@ -326,8 +318,8 @@ contract Sio2AdapterAssetManager is Initializable, OwnableUpgradeable, Reentranc
         return amounts;
     }
     
-    /// @notice Get arrays of asset names and its amounts for ui
-    /// @param _user User address
+    // @notice Get arrays of asset names and its amounts for ui
+    // @param _user User address
     function getAvailableTokensToRepay(
         address _user
     ) external view returns (
@@ -346,7 +338,7 @@ contract Sio2AdapterAssetManager is Initializable, OwnableUpgradeable, Reentranc
         return (assetNames, debtAmounts);
     }
 
-    /// @notice Used to get assets params
+    // @notice Used to get assets params
     function getAssetParameters(
         address _assetAddr
     )
@@ -366,8 +358,8 @@ contract Sio2AdapterAssetManager is Initializable, OwnableUpgradeable, Reentranc
         loanToValue = data.getLtv();
     }
 
-    /// @notice If token decimals is different from 18, 
-    ///         add the missing number of zeros for correct calculations
+    // @notice If token decimals is different from 18, 
+    //         add the missing number of zeros for correct calculations
     function to18DecFormat(address _tokenAddress, uint256 _amount) public view returns (uint256) {
         if (ERC20Upgradeable(_tokenAddress).decimals() < 18) {
             return _amount * 10 ** (18 - ERC20Upgradeable(_tokenAddress).decimals());
@@ -391,8 +383,8 @@ contract Sio2AdapterAssetManager is Initializable, OwnableUpgradeable, Reentranc
         return assetInfo[_assetName];
     }
 
-    /// @notice Get share of n tokens in pool for user
-    /// @param _user User's address
+    // @notice Get share of n tokens in pool for user
+    // @param _user User's address
     function calc(address _user) external view returns (uint256) {
         Sio2Adapter.User memory user = adapter.getUser(_user);
         return user.collateralAmount;
