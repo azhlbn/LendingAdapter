@@ -14,8 +14,6 @@ contract Sio2AdapterAssetManager is Initializable, OwnableUpgradeable, Reentranc
     ISio2LendingPool public pool;
     Sio2Adapter public adapter;
 
-    uint256 private constant REWARDS_PRECISION = 1e12; // A big number to perform mul and div operations
-
     string[] public assets;
     address[] public bTokens;
 
@@ -24,6 +22,7 @@ contract Sio2AdapterAssetManager is Initializable, OwnableUpgradeable, Reentranc
     mapping(string => bool) public assetNameExist;
 
     uint256 public maxNumberOfAssets;
+    uint256 private rewardsPrecision; // A big number to perform mul and div operations
 
     struct Asset {
         uint256 id;
@@ -163,12 +162,12 @@ contract Sio2AdapterAssetManager is Initializable, OwnableUpgradeable, Reentranc
 
     function increaseAccBorrowedRewardsPerShare(string memory _assetName, uint256 _assetRewards) external onlyAdapter {
         Asset storage asset = assetInfo[_assetName];
-        asset.accBorrowedRewardsPerShare += _assetRewards * REWARDS_PRECISION / asset.totalBorrowed;
+        asset.accBorrowedRewardsPerShare += _assetRewards * rewardsPrecision / asset.totalBorrowed;
     }
 
     function increaseAccBTokensPerShare(string memory _assetName, uint256 _income) external onlyAdapter {
         Asset storage asset = assetInfo[_assetName];
-        asset.accBTokensPerShare += _income * REWARDS_PRECISION / asset.totalBorrowed;
+        asset.accBTokensPerShare += _income * rewardsPrecision / asset.totalBorrowed;
     }
 
     function updateLastBTokenBalance(string memory _assetName) external onlyAdapter {
@@ -206,6 +205,18 @@ contract Sio2AdapterAssetManager is Initializable, OwnableUpgradeable, Reentranc
         maxNumberOfAssets = _num;
     }
 
+    function updateParams() external onlyOwner {
+        rewardsPrecision = 1e36;
+        uint256 len = assets.length;
+        // sync accumulated values
+        for (uint256 i; i < len;) {
+            Asset memory asset = assetInfo[assets[i]];
+            asset.accBorrowedRewardsPerShare *= 1e24;
+            asset.accBTokensPerShare *= 1e24;
+            unchecked { ++i; }
+        }
+    }
+
     /// @notice Check user collateral amount without state updates
     /// @param _userAddr User address
     /// @return coll User's collateral value in USD
@@ -221,13 +232,13 @@ contract Sio2AdapterAssetManager is Initializable, OwnableUpgradeable, Reentranc
         if (snastr.balanceOf(address(this)) > adapter.lastSTokenBalance()) {
             estAccSTokensPerShare +=
                 ((snastr.balanceOf(address(this)) - adapter.lastSTokenBalance()) *
-                    REWARDS_PRECISION) /
+                    rewardsPrecision) /
                 adapter.totalSupply();
         }
 
         estUserCollateral +=
             (estUserCollateral * estAccSTokensPerShare) /
-            REWARDS_PRECISION -
+            rewardsPrecision -
             user.sTokensIncomeDebt;
 
         coll = adapter.toUSD(address(adapter.nastr()), estUserCollateral);
@@ -251,6 +262,26 @@ contract Sio2AdapterAssetManager is Initializable, OwnableUpgradeable, Reentranc
         }
     }
 
+    function calcEstimateUserRewards(address _user) public view returns (uint256 result) {
+        Sio2Adapter.User memory user = adapter.getUser(_user);
+        string[] memory bAssets = user.borrowedAssets;
+        uint256 bAssetsLen = bAssets.length;
+        uint256 collectedRewards = user.rewards;
+        result = collectedRewards;
+
+        // iter by user's bTokens
+        for (uint256 i; i < bAssetsLen;) {
+            Asset memory asset = assetInfo[bAssets[i]];
+            uint256 debt = estimateDebtInAsset(_user, bAssets[i]);
+            result += debt * asset.accBorrowedRewardsPerShare / rewardsPrecision -
+                adapter.userBorrowedRewardDebt(_user, bAssets[i]);
+            unchecked { ++i; }
+        }
+        
+        result += user.collateralAmount * adapter.accCollateralRewardsPerShare() /
+            rewardsPrecision - user.collateralRewardDebt;
+    }
+
     function estimateDebtInAsset(address _userAddr, string memory _assetName) public view returns (uint256) {
         Asset memory asset = assetInfo[_assetName];
 
@@ -266,8 +297,8 @@ contract Sio2AdapterAssetManager is Initializable, OwnableUpgradeable, Reentranc
         }
 
         if (curBBal18Dec > 0 && income > 0) {
-            estAccBTokens += income * REWARDS_PRECISION / curBBal18Dec;
-            estDebt += estDebt * estAccBTokens / REWARDS_PRECISION - bIncomeDebt;
+            estAccBTokens += income * rewardsPrecision / curBBal18Dec;
+            estDebt += estDebt * estAccBTokens / rewardsPrecision - bIncomeDebt;
         }
 
         return estDebt;

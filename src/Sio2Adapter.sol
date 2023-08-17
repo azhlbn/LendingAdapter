@@ -139,7 +139,8 @@ contract Sio2Adapter is
         (collateralLT, liquidationPenalty, collateralLTV) = assetManager
             .getAssetParameters(address(nastr)); // set collateral params
         setMaxAmountToBorrow(15); // set the max amount of borrowed assets
-        updateParams();
+        rewardsPrecision = 1e36;
+        collateralRewardsWeight = assetManager.getAssetWeight(address(nastr));
 
         _updateLastSTokenBalance();
     }
@@ -848,6 +849,9 @@ contract Sio2Adapter is
     function updateParams() public onlyOwner {
         rewardsPrecision = 1e36;
         collateralRewardsWeight = assetManager.getAssetWeight(address(nastr));
+        // sync accumulated rewards
+        accCollateralRewardsPerShare *= 1e24;
+        accSTokensPerShare *= 1e24;
     }
 
     /// @notice Disabling funcs with the whenNotPaused modifier
