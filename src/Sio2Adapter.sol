@@ -644,7 +644,9 @@ contract Sio2Adapter is
             collateralRewardsWeight *
             SHARES_PRECISION) / snastrToken.totalSupply();
 
-        for (uint256 i; i < assets.length; i++) {
+        uint256 assetsLen = assets.length;
+
+        for (uint256 i; i < assetsLen; i++) {
             ( , , , 
                 address assetBTokenAddress, , , , 
                 uint256 assetRewardsWeight, , 
@@ -664,7 +666,7 @@ contract Sio2Adapter is
 
         // set accumulated rewards per share for each borrowed asset
         // needed for sio2 rewards distribution
-        for (uint256 i; i < assets.length; ) {
+        for (uint256 i; i < assetsLen; ) {
             ( , , ,
                 address assetBTokenAddress, , ,
                 uint256 assetTotalBorrowed,
@@ -712,6 +714,7 @@ contract Sio2Adapter is
     function _updatePools() private {
         uint256 currentSTokenBalance = snastrToken.balanceOf(address(this));
         string[] memory assets = assetManager.getAssetsNames();
+        uint256 assetsLen = assets.length;
 
         // if sToken balance was changed, lastSTokenBalance updates
         if (currentSTokenBalance > lastSTokenBalance) {
@@ -722,7 +725,7 @@ contract Sio2Adapter is
         }
 
         // update bToken debts
-        for (uint256 i; i < assets.length; ) {
+        for (uint256 i; i < assetsLen; ) {
             ( , , ,
                 address assetBTokenAddress, ,
                 uint256 assetLastBTokenBalance,
@@ -758,9 +761,10 @@ contract Sio2Adapter is
     /// @notice Update balances of b-tokens, s-tokens and rewards for user
     function _updateUserRewards(address _user) private {
         User storage user = userInfo[_user];
+        uint256 userBAssetsLen = user.borrowedAssets.length;
 
         // moving by borrowing assets for current user
-        for (uint256 i; i < user.borrowedAssets.length; ) {
+        for (uint256 i; i < userBAssetsLen; ) {
             ( , string memory assetName, , , , , , ,
                 uint256 assetAccBTokensPerShare,
                 uint256 assetAccBorrowedRewardsPerShare
