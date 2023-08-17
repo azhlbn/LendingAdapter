@@ -75,6 +75,9 @@ contract Sio2Adapter is
     uint256 private rewardsPrecision; // A big number to perform mul and div operations
     uint256 public collateralRewardsWeight; // by default 5% of all sio2 collateral rewards go to the nASTR pool
 
+    bool private _paused;
+    address private _grantedOwner;
+
     //Events
     event Supply(address indexed user, uint256 indexed amount);
     event Withdraw(address indexed user, uint256 indexed amount);
@@ -105,6 +108,8 @@ contract Sio2Adapter is
     event UpdateUserRewards(address indexed user);
     event RemoveUser(address indexed user);
     event UpdateLastSTokenBalance(address indexed who, uint256 currentBalance);
+    event Paused(address account);
+    event Unpaused(address account);
 
     /// @custom:oz-upgrades-unsafe-allow constructor
     constructor() {
@@ -145,6 +150,11 @@ contract Sio2Adapter is
         _updateLastSTokenBalance();
     }
 
+    modifier whenNotPaused() {
+        require(!_paused, "Not available when paused");
+        _;
+    }
+
     receive() external payable {
         require(
             msg.sender == address(WASTR),
@@ -154,7 +164,7 @@ contract Sio2Adapter is
 
     /// @notice Supply nASTR tokens as collateral
     /// @param _amount Number of nASTR tokens sended to supply
-    function supply(uint256 _amount) external update(msg.sender) nonReentrant {
+    function supply(uint256 _amount) external update(msg.sender) nonReentrant whenNotPaused {
         require(_amount > 0, "Should be greater than zero");
         require(
             nastr.balanceOf(msg.sender) >= _amount,
@@ -188,7 +198,7 @@ contract Sio2Adapter is
 
     /// @notice Used to withdraw a deposit by a user
     /// @param _amount Amount of tokens to withdraw
-    function withdraw(uint256 _amount) external update(msg.sender) {
+    function withdraw(uint256 _amount) external update(msg.sender) whenNotPaused {
         _withdraw(msg.sender, _amount);
     }
 
@@ -247,7 +257,7 @@ contract Sio2Adapter is
     function borrow(
         string memory _assetName,
         uint256 _amount
-    ) external update(msg.sender) nonReentrant {
+    ) external update(msg.sender) nonReentrant whenNotPaused {
         (, , address assetAddr, , , , , , , ) = assetManager.assetInfo(
             _assetName
         );
@@ -327,7 +337,7 @@ contract Sio2Adapter is
 
     /// @notice Needed to transfer collateral position to adapter
     /// @param _amount Amount of supply tokens to deposit
-    function addSTokens(uint256 _amount) external update(msg.sender) {
+    function addSTokens(uint256 _amount) external update(msg.sender) whenNotPaused {
         require(
             snastrToken.balanceOf(msg.sender) >= _amount,
             "Not enough sTokens on user balance"
@@ -362,7 +372,7 @@ contract Sio2Adapter is
         string memory _debtAsset,
         address _user,
         uint256 _debtToCover
-    ) external returns (uint256) {
+    ) external whenNotPaused returns (uint256) {
         (, , address debtAssetAddr, , , , , , , ) = assetManager.assetInfo(
             _debtAsset
         );
@@ -492,7 +502,7 @@ contract Sio2Adapter is
     }
 
     /// @notice Claim rewards by user
-    function claimRewards() external update(msg.sender) {
+    function claimRewards() external update(msg.sender) whenNotPaused {
         User storage user = userInfo[msg.sender];
         require(user.rewards > 0, "User has no any rewards");
         uint256 rewardsToClaim = user.rewards;
@@ -506,40 +516,12 @@ contract Sio2Adapter is
         emit ClaimRewards(msg.sender, rewardsToClaim);
     }
 
-    /// @notice Withdraw revenue by owner
-    /// @param _amount Amount of sio2 tokens
-    function withdrawRevenue(uint256 _amount) external onlyOwner {
-        require(_amount > 0, "Should be greater than zero");
-        require(
-            rewardToken.balanceOf(address(this)) >= _amount,
-            "Not enough SIO2 revenue tokens"
-        );
-        require(_amount <= revenuePool, "Not enough tokens in revenue pool");
-
-        revenuePool -= _amount;
-        rewardToken.safeTransfer(msg.sender, _amount);
-
-        emit WithdrawRevenue(msg.sender, _amount);
-    }
-
-    /// @notice Sets the maximum amount of borrowed assets by the owner
-    /// @param _amount Amount of assets
-    function setMaxAmountToBorrow(uint256 _amount) public onlyOwner {
-        maxAmountToBorrow = _amount;
-    }
-
-    /// @notice Sets internal parameters for proper operation
-    function updateParams() public onlyOwner {
-        rewardsPrecision = 1e36;
-        collateralRewardsWeight = assetManager.getAssetWeight(address(nastr));
-    }
-
     /// @notice Repay logic
     function _repay(
         string memory _assetName,
         uint256 _amount,
         address _user
-    ) private {
+    ) private whenNotPaused {
         (, , address assetAddress, , , , , , , ) = assetManager.assetInfo(
             _assetName
         );
@@ -834,6 +816,79 @@ contract Sio2Adapter is
         emit RemoveUser(msg.sender);
     }
 
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    // ADMIN LOGIC
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
+    /// @notice Withdraw revenue by owner
+    /// @param _amount Amount of sio2 tokens
+    function withdrawRevenue(uint256 _amount) external onlyOwner {
+        require(_amount > 0, "Should be greater than zero");
+        require(
+            rewardToken.balanceOf(address(this)) >= _amount,
+            "Not enough SIO2 revenue tokens"
+        );
+        require(_amount <= revenuePool, "Not enough tokens in revenue pool");
+
+        revenuePool -= _amount;
+        rewardToken.safeTransfer(msg.sender, _amount);
+
+        emit WithdrawRevenue(msg.sender, _amount);
+    }
+
+    /// @notice Sets the maximum amount of borrowed assets by the owner
+    /// @param _amount Amount of assets
+    function setMaxAmountToBorrow(uint256 _amount) public onlyOwner {
+        maxAmountToBorrow = _amount;
+    }
+
+    /// @notice Sets internal parameters for proper operation
+    function updateParams() public onlyOwner {
+        rewardsPrecision = 1e36;
+        collateralRewardsWeight = assetManager.getAssetWeight(address(nastr));
+    }
+
+    /// @notice Disabling funcs with the whenNotPaused modifier
+    function pause() external onlyOwner {
+        _paused = true;
+        emit Paused(msg.sender);
+    }
+
+    /// @notice Enabling funcs with the whenNotPaused modifier
+    function unpause() external onlyOwner {
+        _paused = false;
+        emit Unpaused(msg.sender);
+    }
+
+    /// @notice propose a new owner
+    /// @param _newOwner => new contract owner
+    function grantOwnership(address _newOwner) external onlyOwner {
+        require(_newOwner != address(0), "Owner cannot be a zero address");
+        require(_newOwner != owner(), "New owner shouldn't match the current one");
+        _grantedOwner = _newOwner;
+    }
+
+    /// @notice claim ownership by granted address
+    function claimOwnership() external {
+        require(_grantedOwner == msg.sender, "Caller is not the granted owner");
+        _transferOwnership(_grantedOwner);
+        _grantedOwner = address(0);
+    }
+
+    /// @notice Disabling transfer and renounce of ownership for security reasons 
+    function transferOwnership(address) public override { revert("Not allowed"); } 
+
+    /// @notice Disabling transfer and renounce of ownership for security reasons 
+    function renounceOwnership() public override { revert("Not allowed"); }
+    
+    ////////////////////////////////////////////////////////////////////////////
+    //
+    // READERS
+    //
+    ////////////////////////////////////////////////////////////////////////////
+
     /// @notice Convert tokens value to USD
     /// @param _asset Asset address
     /// @param _amount Amount of token with 18 decimals
@@ -856,11 +911,6 @@ contract Sio2Adapter is
     ) public view returns (uint256) {
         uint256 price = priceOracle.getAssetPrice(_asset);
         return (_amount * PRICE_PRECISION) / price;
-    }
-
-    /// @notice Disabled functionality to renounce ownership
-    function renounceOwnership() public override onlyOwner {
-        revert("It is not possible to renounce ownership");
     }
 
     /// @notice Get user info
