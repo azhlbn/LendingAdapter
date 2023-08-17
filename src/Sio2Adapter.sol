@@ -530,7 +530,7 @@ contract Sio2Adapter is
 
     /// @notice Sets internal parameters for proper operation
     function updateParams() public onlyOwner {
-        rewardsPrecision = 1e24;
+        rewardsPrecision = 1e36;
         collateralRewardsWeight = assetManager.getAssetWeight(address(nastr));
     }
 
