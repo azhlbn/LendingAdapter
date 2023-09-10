@@ -208,7 +208,7 @@ contract Sio2AdapterAssetManager is Initializable, OwnableUpgradeable, Reentranc
         maxNumberOfAssets = _num;
     }
 
-    function updateParams() external onlyOwner {
+    function updateParams() external onlyAdapter {
         rewardsPrecision = 1e36;
         uint256 len = assets.length;
         // sync accumulated values

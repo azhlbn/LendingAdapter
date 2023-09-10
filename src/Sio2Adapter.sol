@@ -846,12 +846,16 @@ contract Sio2Adapter is
     }
 
     /// @notice Sets internal parameters for proper operation
-    function updateParams() public onlyOwner {
+    function updateParams() external onlyOwner {
+        require(rewardsPrecision != 1e36, "Already been updated");
+
         rewardsPrecision = 1e36;
         collateralRewardsWeight = assetManager.getAssetWeight(address(nastr));
         // sync accumulated rewards
         accCollateralRewardsPerShare *= 1e24;
         accSTokensPerShare *= 1e24;
+
+        assetManager.updateParams();
     }
 
     /// @notice Disabling funcs with the whenNotPaused modifier
