@@ -373,7 +373,7 @@ contract Sio2Adapter is
         string memory _debtAsset,
         address _user,
         uint256 _debtToCover
-    ) external whenNotPaused returns (uint256) {
+    ) external returns (uint256) {
         (, , address debtAssetAddr, , , , , , , ) = assetManager.assetInfo(
             _debtAsset
         );
@@ -934,3 +934,4 @@ contract Sio2Adapter is
         return users.length;
     }
 }
+

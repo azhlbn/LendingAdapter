@@ -120,9 +120,10 @@ contract Liquidator is FlashLoanReceiverBase, AccessControl {
         address[] calldata assets,
         uint256[] calldata amounts,
         uint256[] calldata premiums,
-        address,
+        address initiator,
         bytes calldata
     ) external override returns (bool) {
+        require(initiator == address(this), "Initiator should be current contract");
 
         // do liquidations and collect collateral
         for (uint256 idx; idx < assets.length;) {
