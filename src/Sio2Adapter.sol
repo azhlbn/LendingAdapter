@@ -313,7 +313,7 @@ contract Sio2Adapter is
             IERC20Upgradeable(assetAddr).safeTransfer(msg.sender, nativeAmount);
         }
 
-        emit Borrow(msg.sender, _assetName, _amount);
+        emit Borrow(msg.sender, _assetName, roundedAmount);
     }
 
     /// @dev when user calls repay(), _user and msg.sender are the same
@@ -532,8 +532,11 @@ contract Sio2Adapter is
     ) private whenNotPaused {
         (, , address assetAddress, , , , , , , ) = assetManager.assetInfo(
             _assetName
-        );
+        ); 
         IERC20Upgradeable asset = IERC20Upgradeable(assetAddress);
+
+        uint256 nativeAmount = assetManager.toNativeDecFormat(assetAddress, _amount);
+        uint256 roundedAmount = assetManager.to18DecFormat(assetAddress, nativeAmount);
 
         uint256 userBal;
         if (assetAddress != address(WASTR)) {
@@ -542,7 +545,7 @@ contract Sio2Adapter is
             // add missing zeros for correct calculations if needed
             userBal = assetManager.to18DecFormat(assetAddress, userBal);
 
-            require(userBal >= _amount, "Not enough wallet balance to repay");
+            require(userBal >= roundedAmount, "Not enough wallet balance to repay");
             require(msg.value == 0, "Sending ASTR not allowed for this asset");
         }
 
@@ -551,31 +554,26 @@ contract Sio2Adapter is
             debts[_user][_assetName] > 0,
             "The user has no debt in this asset"
         );
-        require(_amount > 0, "Amount should be greater than zero");
+        require(roundedAmount > 0, "Amount should be greater than zero");
         require(
-            debts[_user][_assetName] >= _amount,
+            debts[_user][_assetName] >= roundedAmount,
             "Too large amount, debt is smaller"
         );
 
-        uint256 nativeAmount = assetManager.toNativeDecFormat(
-            assetAddress,
-            _amount
-        );
-
         if (assetAddress == address(WASTR)) {
-            require(msg.value >= _amount, "msg.value must be >= _amount");
+            require(msg.value >= roundedAmount, "msg.value must be >= _amount");
             // return diff back to user
-            if (msg.value > _amount)
-                payable(msg.sender).sendValue(msg.value - _amount);
+            if (msg.value > roundedAmount)
+                payable(msg.sender).sendValue(msg.value - roundedAmount);
             // change astr to wastr
-            WASTR.deposit{value: _amount}();
+            WASTR.deposit{value: roundedAmount}();
         } else {
             // take borrowed asset from user or liquidator and reduce user's debt
             asset.safeTransferFrom(msg.sender, address(this), nativeAmount);
         }
 
-        debts[_user][_assetName] -= _amount;
-        assetManager.decreaseAssetsTotalBorrowed(_assetName, _amount);
+        debts[_user][_assetName] -= roundedAmount;
+        assetManager.decreaseAssetsTotalBorrowed(_assetName, roundedAmount);
 
         // remove the asset from the user's borrowedAssets if he is no longer a debtor
         if (debts[_user][_assetName] == 0) {
@@ -591,7 +589,7 @@ contract Sio2Adapter is
         // update bToken's last balance
         assetManager.updateLastBTokenBalance(_assetName);
 
-        emit Repay(msg.sender, _user, _assetName, _amount);
+        emit Repay(msg.sender, _user, _assetName, roundedAmount);
     }
 
     /// @notice Removes asset from user's assets list
