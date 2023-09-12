@@ -736,6 +736,7 @@ contract Sio2Adapter is
 
                 if (bTokenBalance > assetLastBTokenBalance) {
                     income = bTokenBalance - assetLastBTokenBalance;
+                    assetManager.increaseAssetsTotalBorrowed(assets[i], income);
                     assetManager.increaseAccBTokensPerShare(assets[i], income);
                     assetManager.updateLastBTokenBalance(assets[i]);
                 }
@@ -779,9 +780,6 @@ contract Sio2Adapter is
             userBorrowedRewardDebt[_user][assetName] =
                 (debts[_user][assetName] * assetAccBorrowedRewardsPerShare) /
                 rewardsPrecision;
-
-            // update total amount of total borrowed for current asset
-            assetManager.increaseAssetsTotalBorrowed(assetName, debtToHarvest);
 
             unchecked {
                 ++i;
