@@ -330,7 +330,7 @@ contract Sio2AdapterAssetManager is Initializable, OwnableUpgradeable, Reentranc
         }
 
         if (curBBal18Dec > 0 && income > 0) {
-            estAccBTokens += income * rewardsPrecision / curBBal18Dec;
+            estAccBTokens += income * rewardsPrecision / asset.lastBTokenBalance;
             estDebt += estDebt * estAccBTokens / rewardsPrecision - bIncomeDebt;
         }
 
