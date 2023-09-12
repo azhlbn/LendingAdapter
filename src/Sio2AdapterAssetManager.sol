@@ -265,7 +265,7 @@ contract Sio2AdapterAssetManager is Initializable, OwnableUpgradeable, Reentranc
             estAccSTokensPerShare +=
                 ((snastr.balanceOf(address(this)) - adapter.lastSTokenBalance()) *
                     rewardsPrecision) /
-                adapter.totalSupply();
+                adapter.lastSTokenBalance();
         }
 
         estUserCollateral +=

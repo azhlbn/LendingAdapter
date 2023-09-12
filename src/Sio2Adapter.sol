@@ -711,7 +711,7 @@ contract Sio2Adapter is
             accSTokensPerShare +=
                 ((currentSTokenBalance - lastSTokenBalance) *
                     rewardsPrecision) /
-                totalSupply;
+                lastSTokenBalance;
         }
 
         // update bToken debts
