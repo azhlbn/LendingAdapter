@@ -74,7 +74,7 @@ contract Sio2Adapter is
         IWASTR(0xAeaaf0e2c81Af264101B9129C00F4440cCF0F720);
 
     uint256 private rewardsPrecision; // A big number to perform mul and div operations
-    uint256 public collateralRewardsWeight; // by default 5% of all sio2 collateral rewards go to the nASTR pool
+    uint256 public collateralRewardsWeight; // share of all sio2 collateral rewards
 
     bool private _paused;
     address private _grantedOwner;
@@ -374,9 +374,10 @@ contract Sio2Adapter is
         address _user,
         uint256 _debtToCover
     ) external returns (uint256) {
-        (, , address debtAssetAddr, , , , , , , ) = assetManager.assetInfo(
+        Sio2AdapterAssetManager.Asset memory asset = assetManager.getAssetInfo(
             _debtAsset
         );
+        address debtAssetAddr = asset.bTokenAddress;
 
         // check user HF, debtUSD and update state
         (uint256 hf, uint256 userTotalDebtInUSD) = getLiquidationParameters(
@@ -492,10 +493,9 @@ contract Sio2Adapter is
         address _user,
         string memory _assetName
     ) private {
-        ( , , , , , , , , 
-            uint256 assetAccBTokensPerShare,
-            uint256 assetAccBorrowedRewardsPerShare
-        ) = assetManager.assetInfo(_assetName); // prettier-ignore
+        Sio2AdapterAssetManager.Asset memory asset = assetManager.getAssetInfo(_assetName);
+        uint256 assetAccBTokensPerShare = asset.accBTokensPerShare;
+        uint256 assetAccBorrowedRewardsPerShare = asset.accBorrowedRewardsPerShare;
 
         // update rewardDebt for user's bTokens
         userBTokensIncomeDebt[_user][_assetName] =
@@ -529,9 +529,9 @@ contract Sio2Adapter is
         uint256 _amount,
         address _user
     ) private whenNotPaused {
-        (, , address assetAddress, , , , , , , ) = assetManager.assetInfo(
-            _assetName
-        ); 
+        Sio2AdapterAssetManager.Asset memory repayAsset = assetManager.getAssetInfo(_assetName);
+        address assetAddress = repayAsset.bTokenAddress;
+
         IERC20Upgradeable asset = IERC20Upgradeable(assetAddress);
 
         uint256 nativeAmount = assetManager.toNativeDecFormat(assetAddress, _amount);
@@ -634,10 +634,9 @@ contract Sio2Adapter is
         uint256 assetsLen = assets.length;
 
         for (uint256 i; i < assetsLen; i++) {
-            ( , , , 
-                address assetBTokenAddress, , , , 
-                uint256 assetRewardsWeight, , 
-            ) = assetManager.assetInfo(assets[i]); // prettier-ignore
+            Sio2AdapterAssetManager.Asset memory asset = assetManager.getAssetInfo(assets[i]);
+            address assetBTokenAddress = asset.bTokenAddress;
+            uint256 assetRewardsWeight = asset.rewardsWeight;
 
             IERC20Upgradeable bToken = IERC20Upgradeable(assetBTokenAddress);
 
@@ -654,11 +653,10 @@ contract Sio2Adapter is
         // set accumulated rewards per share for each borrowed asset
         // needed for sio2 rewards distribution
         for (uint256 i; i < assetsLen; ) {
-            ( , , ,
-                address assetBTokenAddress, , ,
-                uint256 assetTotalBorrowed,
-                uint256 assetRewardsWeight, ,
-            ) = assetManager.assetInfo(assets[i]); // prettier-ignore
+            Sio2AdapterAssetManager.Asset memory asset = assetManager.getAssetInfo(assets[i]);
+            address assetBTokenAddress = asset.bTokenAddress;
+            uint256 assetTotalBorrowed = asset.totalBorrowed;
+            uint256 assetRewardsWeight = asset.rewardsWeight;
 
             if (assetTotalBorrowed > 0) {
                 IERC20Upgradeable bToken = IERC20Upgradeable(
@@ -713,11 +711,10 @@ contract Sio2Adapter is
 
         // update bToken debts
         for (uint256 i; i < assetsLen; ) {
-            ( , , ,
-                address assetBTokenAddress, ,
-                uint256 assetLastBTokenBalance,
-                uint256 assetTotalBorrowed, , ,
-            ) = assetManager.assetInfo(assets[i]); // prettier-ignore
+            Sio2AdapterAssetManager.Asset memory asset = assetManager.getAssetInfo(assets[i]);
+            address assetBTokenAddress = asset.bTokenAddress;
+            uint256 assetLastBTokenBalance = asset.lastBTokenBalance;
+            uint256 assetTotalBorrowed = asset.totalBorrowed;
 
             if (assetTotalBorrowed > 0) {
                 uint256 bTokenBalance = IERC20Upgradeable(assetBTokenAddress)
@@ -753,10 +750,10 @@ contract Sio2Adapter is
 
         // moving by borrowing assets for current user
         for (uint256 i; i < userBAssetsLen; ) {
-            ( , string memory assetName, , , , , , ,
-                uint256 assetAccBTokensPerShare,
-                uint256 assetAccBorrowedRewardsPerShare
-            ) = assetManager.assetInfo(user.borrowedAssets[i]); // prettier-ignore
+            Sio2AdapterAssetManager.Asset memory asset = assetManager.getAssetInfo(user.borrowedAssets[i]);
+            string memory assetName = asset.name;
+            uint256 assetAccBTokensPerShare = asset.accBTokensPerShare;
+            uint256 assetAccBorrowedRewardsPerShare = asset.accBorrowedRewardsPerShare;
 
             // update bToken debt
             uint256 debtToHarvest = (debts[_user][assetName] *

@@ -40,6 +40,8 @@ contract Sio2AdapterAssetManager is Initializable, OwnableUpgradeable, Reentranc
 
     IAdaptersDistributor public constant ADAPTERS_DISTRIBUTOR = IAdaptersDistributor(0x294Bb6b8e692543f373383A84A1f296D3C297aEf);
 
+    mapping(string => Asset) public removedAssetInfo;
+
     event AddAsset(address owner, string indexed assetName, address indexed assetAddress);
     event RemoveAsset(address owner, string indexed assetName);
     event SetAdapter(address who, address adapterAddress);
@@ -147,6 +149,11 @@ contract Sio2AdapterAssetManager is Initializable, OwnableUpgradeable, Reentranc
 
         bTokenExist[asset.bTokenAddress] = false;
         assetNameExist[asset.name] = false;
+
+        removedAssetInfo[_assetName] = asset;
+
+        // Delete id since removed asset is no longer in `assets` array
+        delete removedAssetInfo[_assetName].id;
 
         // update id of last asset and remove deleted struct
         assetInfo[lastAsset].id = asset.id;
@@ -298,7 +305,7 @@ contract Sio2AdapterAssetManager is Initializable, OwnableUpgradeable, Reentranc
 
         // iter by user's bTokens
         for (uint256 i; i < bAssetsLen; i = _incrementUnchecked(i)) {
-            Asset memory asset = assetInfo[bAssets[i]];
+            Asset memory asset = getAssetInfo(bAssets[i]);
             uint256 debt = estimateDebtInAsset(_user, bAssets[i]);
             result += debt * asset.accBorrowedRewardsPerShare / rewardsPrecision -
                 adapter.userBorrowedRewardDebt(_user, bAssets[i]);
@@ -309,7 +316,7 @@ contract Sio2AdapterAssetManager is Initializable, OwnableUpgradeable, Reentranc
     }
 
     function estimateDebtInAsset(address _userAddr, string memory _assetName) public view returns (uint256) {
-        Asset memory asset = assetInfo[_assetName];
+        Asset memory asset = getAssetInfo(_assetName);
 
         uint256 bIncomeDebt = adapter.userBTokensIncomeDebt(_userAddr, _assetName);
         uint256 estDebt = adapter.debts(_userAddr, _assetName);
@@ -440,8 +447,13 @@ contract Sio2AdapterAssetManager is Initializable, OwnableUpgradeable, Reentranc
         return _amount;
     }
 
-    function getAssetInfo(string memory _assetName) external view returns (Asset memory) {
-        return assetInfo[_assetName];
+    function getAssetInfo(string memory _assetName) public view returns (Asset memory) {
+        Asset memory asset = assetInfo[_assetName];
+        if (asset.addr == address(0)) {
+            // Asset has been removed
+            asset = removedAssetInfo[_assetName];
+        }
+        return asset;
     }
 
     /// @notice Get share of n tokens in pool for user
