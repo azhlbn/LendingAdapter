@@ -18,8 +18,8 @@ contract Sio2AdapterAssetManager is Initializable, OwnableUpgradeable, Reentranc
     address[] public bTokens;
 
     mapping(string => Asset) public assetInfo;
-    mapping(address => bool) public bTokenExist;
-    mapping(string => bool) public assetNameExist;
+    mapping(address => bool) public bTokenExist; // deprecated
+    mapping(string => bool) public assetNameExist; // deprecated
 
     uint256 public maxNumberOfAssets;
     uint256 private rewardsPrecision; // A big number to perform mul and div operations
@@ -95,8 +95,6 @@ contract Sio2AdapterAssetManager is Initializable, OwnableUpgradeable, Reentranc
     ) public onlyOwner {
         require(assetInfo[_assetName].addr == address(0), "Asset already added");
         require(keccak256(abi.encodePacked(_assetName)) != keccak256(""), "Empty asset name");
-        require(!bTokenExist[_bToken], "Such bToken address already added");
-        require(!assetNameExist[_assetName], "Such asset name already added");
         require(assets.length < maxNumberOfAssets, "Assets limit reached");
 
         // get liquidationThreshold for asset from sio2
@@ -122,9 +120,6 @@ contract Sio2AdapterAssetManager is Initializable, OwnableUpgradeable, Reentranc
         assetInfo[_assetName] = asset;
         bTokens.push(_bToken);
 
-        bTokenExist[_bToken] = true;
-        assetNameExist[_assetName] = true;
-
         emit AddAsset(msg.sender, _assetName, _assetAddress);
     }
 
@@ -146,9 +141,6 @@ contract Sio2AdapterAssetManager is Initializable, OwnableUpgradeable, Reentranc
         address lastBAddr = bTokens[bTokens.length - 1];
         bTokens[asset.id + 1] = lastBAddr;
         bTokens.pop();
-
-        bTokenExist[asset.bTokenAddress] = false;
-        assetNameExist[asset.name] = false;
 
         removedAssetInfo[_assetName] = asset;
 
