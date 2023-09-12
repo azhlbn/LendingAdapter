@@ -64,10 +64,10 @@ interface ISio2IncentivesController {
 
   /**
    * @dev Configure assets for a certain rewards emission
-   * @param assets The assets to incentivize
+   * @param assetsAddresses The assets to incentivize
    * @param emissionsPerSecond The emission for each asset
    */
-  function configureAssets(address[] calldata assets, uint256[] calldata emissionsPerSecond)
+  function configureAssets(address[] calldata assetsAddresses, uint256[] calldata emissionsPerSecond)
     external;
 
   /**
@@ -87,7 +87,7 @@ interface ISio2IncentivesController {
    * @param user The address of the user
    * @return The rewards
    **/
-  function getRewardsBalance(address[] calldata assets, address user)
+  function getRewardsBalance(address[] calldata assetsAddresses, address user)
     external
     view
     returns (uint256);
@@ -99,7 +99,7 @@ interface ISio2IncentivesController {
    * @return Rewards claimed
    **/
   function claimRewards(
-    address[] calldata assets,
+    address[] calldata assetsAddresses,
     uint256 amount,
     address to
   ) external returns (uint256);
@@ -113,7 +113,7 @@ interface ISio2IncentivesController {
    * @return Rewards claimed
    **/
   function claimRewardsOnBehalf(
-    address[] calldata assets,
+    address[] calldata assetsAddresses,
     uint256 amount,
     address user,
     address to

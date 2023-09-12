@@ -170,11 +170,11 @@ contract Sio2AdapterTest is Test {
         vm.startPrank(user);
 
         adapter.supply(1 ether);
-        (, , uint256 colBefore, , , ) = adapter.userInfo(user);
+        (, , uint256 colBefore, , , , ) = adapter.userInfo(user);
         assertEq(colBefore, 1 ether);
 
         adapter.withdraw(1 ether);
-        (, , uint256 colAfter, , , ) = adapter.userInfo(user);
+        (, , uint256 colAfter, , , , ) = adapter.userInfo(user);
         assertEq(colAfter, 0);
 
         vm.stopPrank();
@@ -261,7 +261,7 @@ contract Sio2AdapterTest is Test {
         assertGt(rewardToken.balanceOf(user), 0);
         assertGt(adapter.rewardPool(), 0);
 
-        (, , , uint256 rewards, , ) = adapter.userInfo(user);
+        (, , , uint256 rewards, , , ) = adapter.userInfo(user);
         assertEq(rewards, 0);
 
         vm.stopPrank();
@@ -361,6 +361,6 @@ contract Sio2AdapterTest is Test {
             user
         );
 
-        (, , uint256 col, , , ) = adapter.userInfo(user);
+        (, , uint256 col, , , , ) = adapter.userInfo(user);
     }
 }

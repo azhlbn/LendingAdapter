@@ -64,6 +64,7 @@ contract Sio2Adapter is
         string[] borrowedAssets;
         uint256 collateralRewardDebt;
         uint256 sTokensIncomeDebt;
+        uint256 lastUpdatedBlock;
     }
 
     uint256 public liquidationPenalty;
@@ -463,10 +464,16 @@ contract Sio2Adapter is
             // update collateral and debt accumulated rewards per share
             _updatePools();
 
+            lastUpdatedBlock = block.number;
+        }
+
+        User storage user = userInfo[_user];
+
+        if (block.number > user.lastUpdatedBlock) {
             // update user's rewards, collateral and debt
             _updateUserRewards(_user);
 
-            lastUpdatedBlock = block.number;
+            user.lastUpdatedBlock = block.number;
         }
 
         emit Updates(msg.sender, _user);
