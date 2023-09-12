@@ -128,7 +128,7 @@ contract Sio2AdapterAssetManager is Initializable, OwnableUpgradeable, Reentranc
         emit AddAsset(msg.sender, _assetName, _assetAddress);
     }
 
-    /// @notice Removes an asset and 
+    /// @notice Removes an asset and updates assets and bTokens lists
     function removeAsset(string memory _assetName) external onlyOwner {
         require(
             assetInfo[_assetName].addr != address(0),
