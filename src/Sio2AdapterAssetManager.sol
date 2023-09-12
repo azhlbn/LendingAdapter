@@ -463,7 +463,7 @@ contract Sio2AdapterAssetManager is Initializable, OwnableUpgradeable, Reentranc
     }
 
     function getAssetWeight(address _asset) external view returns (uint256) {
-        ISio2IncentivesController ic = ISio2IncentivesController(adapter.incentivesController());
+        ISio2IncentivesController ic = adapter.incentivesController();
 
         address[] memory assetsList = pool.getReservesList();
         uint256 sumOfCollateralWeights;
