@@ -69,6 +69,7 @@ contract Sio2AdapterAssetManager is Initializable, OwnableUpgradeable, Reentranc
 
         pool = _pool;
         rewardsPrecision = 1e36;
+        _setMaxNumberOfAssets(30);
     }
 
     modifier onlyAdapter() {
@@ -203,12 +204,17 @@ contract Sio2AdapterAssetManager is Initializable, OwnableUpgradeable, Reentranc
     /// @notice Sets the maximum number of assets
     /// @param _num Number of assets. Equal to 30 by default
     function setMaxNumberOfAssets(uint256 _num) external onlyOwner {
-        require(_num > 0, "Cannot equal to zero");
+        _setMaxNumberOfAssets(_num);
+    }
+
+    function _setMaxNumberOfAssets(uint256 _num) internal {
+        require(_num > 0, "Cannot be equal to zero");
         maxNumberOfAssets = _num;
     }
 
     function updateParams() external onlyAdapter {
         rewardsPrecision = 1e36;
+        _setMaxNumberOfAssets(30);
         uint256 len = assets.length;
         // sync accumulated values
         for (uint256 i; i < len; i = _incrementUnchecked(i)) {
