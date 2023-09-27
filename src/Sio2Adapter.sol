@@ -849,12 +849,17 @@ contract Sio2Adapter is
         require(rewardsPrecision != 1e36, "Already been updated");
 
         rewardsPrecision = 1e36;
-        collateralRewardsWeight = assetManager.getAssetWeight(address(nastr));
+        
         // sync accumulated rewards
         accCollateralRewardsPerShare *= 1e24;
         accSTokensPerShare *= 1e24;
 
         assetManager.updateParams();
+    }
+
+    /// @notice Sync a collateral rewards weight with the sio2 protocol
+    function updateCollateralRewardsWeight() external onlyOwner {
+        collateralRewardsWeight = assetManager.getAssetWeight(address(nastr));
     }
 
     /// @notice Disabling funcs with the whenNotPaused modifier
