@@ -377,7 +377,7 @@ contract Sio2Adapter is
         Sio2AdapterAssetManager.Asset memory asset = assetManager.getAssetInfo(
             _debtAsset
         );
-        address debtAssetAddr = asset.bTokenAddress;
+        address debtAssetAddr = asset.addr;
 
         // check user HF, debtUSD and update state
         (uint256 hf, uint256 userTotalDebtInUSD) = getLiquidationParameters(
@@ -530,7 +530,7 @@ contract Sio2Adapter is
         address _user
     ) private whenNotPaused {
         Sio2AdapterAssetManager.Asset memory repayAsset = assetManager.getAssetInfo(_assetName);
-        address assetAddress = repayAsset.bTokenAddress;
+        address assetAddress = repayAsset.addr;
 
         IERC20Upgradeable asset = IERC20Upgradeable(assetAddress);
 
