@@ -432,9 +432,9 @@ contract Sio2AdapterAssetManager is Initializable, OwnableUpgradeable, Reentranc
     /// @notice If token decimals is different from 18, 
     ///         add the missing number of zeros for correct calculations
     function to18DecFormat(address _tokenAddress, uint256 _amount) public view returns (uint256) {
-        if (ERC20Upgradeable(_tokenAddress).decimals() < 18) {
-            return _amount * 10 ** (18 - ERC20Upgradeable(_tokenAddress).decimals());
-        }
+        uint256 dec = ERC20Upgradeable(_tokenAddress).decimals();
+        if (dec < 18) return _amount * 10 ** (18 - dec);
+        else if (dec > 18) return _amount / 10 ** (dec - 18);
         return _amount;
     }
 
@@ -442,11 +442,9 @@ contract Sio2AdapterAssetManager is Initializable, OwnableUpgradeable, Reentranc
         address _tokenAddress,
         uint256 _amount
     ) external view returns (uint256) {
-        if (ERC20Upgradeable(_tokenAddress).decimals() < 18) {
-            return
-                _amount /
-                10 ** (18 - ERC20Upgradeable(_tokenAddress).decimals());
-        }
+        uint256 dec = ERC20Upgradeable(_tokenAddress).decimals();
+        if (dec < 18) return _amount / 10 ** (18 - dec);
+        else if (dec > 18) return _amount * 10 ** (dec - 18);
         return _amount;
     }
 
