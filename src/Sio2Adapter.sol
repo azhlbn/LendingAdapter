@@ -259,21 +259,19 @@ contract Sio2Adapter is
         string memory _assetName,
         uint256 _amount
     ) external update(msg.sender) nonReentrant whenNotPaused {
-        (, , address assetAddr, , , , , , , ) = assetManager.assetInfo(
-            _assetName
-        );
+        Sio2AdapterAssetManager.Asset memory asset = assetManager.getAssetInfo(_assetName);
+        require(asset.isActive, "Asset is not active");
         (uint256 availableColToBorrow, ) = assetManager.availableCollateralUSD(
             msg.sender
         );
-
         require(
-            toUSD(assetAddr, _amount) <= availableColToBorrow,
+            toUSD(asset.addr, _amount) <= availableColToBorrow,
             "Not enough collateral to borrow"
         );
-        require(assetAddr != address(0), "Wrong asset!");
+        require(asset.addr != address(0), "Wrong asset!");
 
-        uint256 nativeAmount = assetManager.toNativeDecFormat(assetAddr, _amount);
-        uint256 roundedAmount = assetManager.to18DecFormat(assetAddr, nativeAmount);
+        uint256 nativeAmount = assetManager.toNativeDecFormat(asset.addr, _amount);
+        uint256 roundedAmount = assetManager.to18DecFormat(asset.addr, nativeAmount);
 
         debts[msg.sender][_assetName] += roundedAmount;
         assetManager.increaseAssetsTotalBorrowed(_assetName, roundedAmount);
@@ -297,7 +295,7 @@ contract Sio2Adapter is
             user.borrowedAssets.push(_assetName);
         }
 
-        pool.borrow(assetAddr, nativeAmount, 2, 0, address(this));
+        pool.borrow(asset.addr, nativeAmount, 2, 0, address(this));
 
         // update user's income debts for bTokens and borrowed rewards
         _updateUserBorrowedIncomeDebts(msg.sender, _assetName);
@@ -305,11 +303,11 @@ contract Sio2Adapter is
         // update bToken's last balance
         assetManager.updateLastBTokenBalance(_assetName);
 
-        if (assetAddr == address(WASTR)) {
+        if (asset.addr == address(WASTR)) {
             WASTR.withdraw(nativeAmount);
             payable(msg.sender).sendValue(nativeAmount);
         } else {
-            IERC20Upgradeable(assetAddr).safeTransfer(msg.sender, nativeAmount);
+            IERC20Upgradeable(asset.addr).safeTransfer(msg.sender, nativeAmount);
         }
 
         emit Borrow(msg.sender, _assetName, roundedAmount);

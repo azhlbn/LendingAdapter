@@ -36,14 +36,13 @@ contract Sio2AdapterAssetManager is Initializable, OwnableUpgradeable, Reentranc
         uint256 rewardsWeight;
         uint256 accBTokensPerShare;
         uint256 accBorrowedRewardsPerShare;
+        bool isActive;
     }
 
     IAdaptersDistributor public constant ADAPTERS_DISTRIBUTOR = IAdaptersDistributor(0x294Bb6b8e692543f373383A84A1f296D3C297aEf);
 
-    mapping(string => Asset) public removedAssetInfo;
-
     event AddAsset(address owner, string indexed assetName, address indexed assetAddress);
-    event RemoveAsset(address owner, string indexed assetName);
+    event SwitchAssetStatus(address indexed owner, string indexed assetName, bool indexed _isActive);
     event SetAdapter(address who, address adapterAddress);
     event UpdateBalSuccess(address user, string utilityName, uint256 amount);
     event UpdateBalError(address user, string utilityName, uint256 amount, string reason);
@@ -114,7 +113,8 @@ contract Sio2AdapterAssetManager is Initializable, OwnableUpgradeable, Reentranc
             accBTokensPerShare: 0,
             totalBorrowed: 0,
             rewardsWeight: _rewardsWeight,
-            accBorrowedRewardsPerShare: 0
+            accBorrowedRewardsPerShare: 0,
+            isActive: true
         });
 
         assets.push(asset.name);
@@ -124,35 +124,16 @@ contract Sio2AdapterAssetManager is Initializable, OwnableUpgradeable, Reentranc
         emit AddAsset(msg.sender, _assetName, _assetAddress);
     }
 
-    /// @notice Removes an asset and updates assets and bTokens lists
-    function removeAsset(string memory _assetName) external onlyOwner {
-        require(
-            assetInfo[_assetName].addr != address(0),
-            "There is no such asset"
-        );
+    /// @notice Activate or deactivate the ability to borrow an asset
+    function switchAssetStatus(string memory _assetName, bool _isActive) external onlyOwner {
+        Asset storage asset = assetInfo[_assetName];
 
-        Asset memory asset = assetInfo[_assetName];
+        require(asset.addr != address(0), "There is no such asset");
+        require(asset.isActive != _isActive, "Status must be diff from the existing");
+        
+        asset.isActive = _isActive;
 
-        // remove from assets
-        string memory lastAsset = assets[assets.length - 1];
-        assets[asset.id] = lastAsset;
-        assets.pop();
-
-        // remove addr from bTokens
-        address lastBAddr = bTokens[bTokens.length - 1];
-        bTokens[asset.id + 1] = lastBAddr;
-        bTokens.pop();
-
-        removedAssetInfo[_assetName] = asset;
-
-        // Delete id since removed asset is no longer in `assets` array
-        delete removedAssetInfo[_assetName].id;
-
-        // update id of last asset and remove deleted struct
-        assetInfo[lastAsset].id = asset.id;
-        delete assetInfo[_assetName];
-
-        emit RemoveAsset(msg.sender, _assetName);
+        emit SwitchAssetStatus(msg.sender, _assetName, _isActive);
     }
 
     function increaseAssetsTotalBorrowed(string memory _assetName, uint256 _amount) external onlyAdapter {
@@ -218,9 +199,10 @@ contract Sio2AdapterAssetManager is Initializable, OwnableUpgradeable, Reentranc
         uint256 len = assets.length;
         // sync accumulated values
         for (uint256 i; i < len; i = _incrementUnchecked(i)) {
-            Asset memory asset = assetInfo[assets[i]];
+            Asset storage asset = assetInfo[assets[i]];
             asset.accBorrowedRewardsPerShare *= 1e24;
             asset.accBTokensPerShare *= 1e24;
+            asset.isActive = true;
         }
     }
 
@@ -303,7 +285,7 @@ contract Sio2AdapterAssetManager is Initializable, OwnableUpgradeable, Reentranc
 
         // iter by user's bTokens
         for (uint256 i; i < bAssetsLen; i = _incrementUnchecked(i)) {
-            Asset memory asset = getAssetInfo(bAssets[i]);
+            Asset memory asset = assetInfo[bAssets[i]];
             uint256 debt = estimateDebtInAsset(_user, bAssets[i]);
             result += debt * asset.accBorrowedRewardsPerShare / rewardsPrecision -
                 adapter.userBorrowedRewardDebt(_user, bAssets[i]);
@@ -314,7 +296,7 @@ contract Sio2AdapterAssetManager is Initializable, OwnableUpgradeable, Reentranc
     }
 
     function estimateDebtInAsset(address _userAddr, string memory _assetName) public view returns (uint256) {
-        Asset memory asset = getAssetInfo(_assetName);
+        Asset memory asset = assetInfo[_assetName];
 
         uint256 bIncomeDebt = adapter.userBTokensIncomeDebt(_userAddr, _assetName);
         uint256 estDebt = adapter.debts(_userAddr, _assetName);
@@ -359,6 +341,29 @@ contract Sio2AdapterAssetManager is Initializable, OwnableUpgradeable, Reentranc
         return assets;
     }
 
+    function getActiveAssetsNames() public view returns (string[] memory) {
+        uint256 assetsLen = assets.length;
+        uint256 activeAssetsLen;
+
+        for (uint256 i; i < assetsLen; i++) {
+            Asset memory asset = assetInfo[assets[i]];
+            if (asset.isActive) activeAssetsLen++;
+        }
+
+        string[] memory activeAssets = new string[](activeAssetsLen);
+        uint256 aaIdx;
+
+        for (uint256 i; i < assetsLen; i++) {
+            Asset memory asset = assetInfo[assets[i]];
+            if (asset.isActive) {
+                activeAssets[aaIdx] = assets[i];
+                aaIdx++;
+            }
+        }
+
+        return activeAssets;
+    }
+
     function getRewardsWeight(string memory assetName) external view returns (uint256) {
         return assetInfo[assetName].rewardsWeight;
     }
@@ -366,22 +371,22 @@ contract Sio2AdapterAssetManager is Initializable, OwnableUpgradeable, Reentranc
     /// @notice Get available tokens to borrow for user and asset
     function getAvailableTokensToBorrow(
         address _user
-    ) external view returns (uint256[] memory) {
-        (uint256 availableColForBorrowUSD,) = availableCollateralUSD(_user);
+    ) external view returns (string[] memory, uint256[] memory) {
+        (uint256 availableColForBorrowUSD, ) = availableCollateralUSD(_user);
 
-        uint256 assetLength = assets.length;
+        string[] memory activeAssetsNames = getActiveAssetsNames();
 
-        string[] memory assetNames = new string[](assetLength);
-        uint256[] memory amounts = new uint256[](assetLength);
+        uint256 len = activeAssetsNames.length;
 
-        assetNames = assets;
+        string[] memory assetNames = new string[](len);
+        uint256[] memory amounts = new uint256[](len);
 
-        for (uint256 i; i < assetLength; i++) {
-            address assetAddr = assetInfo[assetNames[i]].addr;
-            amounts[i] = adapter.fromUSD(assetAddr, availableColForBorrowUSD);
+        for (uint256 i; i < len; i++) {
+            Asset memory asset = assetInfo[activeAssetsNames[i]];
+            amounts[i] = adapter.fromUSD(asset.addr, availableColForBorrowUSD);
         }        
         
-        return amounts;
+        return (activeAssetsNames, amounts);
     }
     
     /// @notice Get arrays of asset names and its amounts for ui
@@ -446,12 +451,7 @@ contract Sio2AdapterAssetManager is Initializable, OwnableUpgradeable, Reentranc
     }
 
     function getAssetInfo(string memory _assetName) public view returns (Asset memory) {
-        Asset memory asset = assetInfo[_assetName];
-        if (asset.addr == address(0)) {
-            // Asset has been removed
-            asset = removedAssetInfo[_assetName];
-        }
-        return asset;
+        return assetInfo[_assetName];
     }
 
     /// @notice Get share of n tokens in pool for user

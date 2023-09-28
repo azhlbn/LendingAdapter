@@ -323,7 +323,7 @@ contract Liquidator is FlashLoanReceiverBase, AccessControl {
     function addrByName(
         string memory _name
     ) public view returns (address addr) {
-        (, , addr, , , , , , , ) = assetManager.assetInfo(_name);
+        (, , addr, , , , , , , , ) = assetManager.assetInfo(_name);
     }
 
     function getPriceUSD(

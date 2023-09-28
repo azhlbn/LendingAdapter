@@ -267,21 +267,6 @@ contract Sio2AdapterTest is Test {
         vm.stopPrank();
     }
 
-    function testAddAndRemoveAsset() public {
-        uint256 assetsInitAmount = assetManager.getAssetsNames().length;
-
-        assetManager.addAsset(address(dai), address(vddai), 8);
-
-        assertEq(assetManager.getAssetsNames().length, assetsInitAmount + 1);
-
-        assetManager.removeAsset("DAI");
-
-        assertEq(assetManager.getAssetsNames().length, assetsInitAmount);
-
-        vm.expectRevert("There is no such asset");
-        assetManager.removeAsset("DAI");
-    }
-
     function testWithdrawRevenue() public {
         vm.startPrank(user);
         adapter.supply(1000 ether);
