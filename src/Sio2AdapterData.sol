@@ -47,8 +47,8 @@ contract Sio2AdapterData is Initializable {
         adapter = _adapter;
         assetManager = _assetManager;
         lendingPool = _lendingPool;
-        collateralLT = adapter.collateralLT();
-        collateralLTV = adapter.collateralLTV();
+        collateralLT = adapter.getLT();
+        collateralLTV = adapter.getLTV();
         collateralAddr = address(adapter.nastr());
     }
 
@@ -61,7 +61,7 @@ contract Sio2AdapterData is Initializable {
 
         require(debtUSD > 0, "User has no debts");
 
-        hf = (collateralUSD * collateralLT * 1e18) /
+        hf = (collateralUSD * adapter.getLT() * 1e18) /
             RISK_PARAMS_PRECISION / debtUSD;
     }
 
@@ -78,7 +78,7 @@ contract Sio2AdapterData is Initializable {
 
         (uint256 availableToBorrowUSD, uint256 availableToWithdrawUSD) = assetManager.availableCollateralUSD(_user);
         uint256 inputDelta = adapter.toUSD(collateralAddr, _amount);
-        uint256 inputDeltaLTV = inputDelta * collateralLTV / RISK_PARAMS_PRECISION;
+        uint256 inputDeltaLTV = inputDelta * adapter.getLTV() / RISK_PARAMS_PRECISION;
         uint256 currentDebtUSD = assetManager.calcEstimateUserDebtUSD(_user);
         uint256 currentCollateralUSD = assetManager.calcEstimateUserCollateralUSD(_user);
 
@@ -95,7 +95,7 @@ contract Sio2AdapterData is Initializable {
         if (currentDebtUSD == 0) {
             before[2] = type(uint256).max;
         } else {
-            before[2] = currentCollateralUSD * collateralLT * 1e18 / RISK_PARAMS_PRECISION / currentDebtUSD;
+            before[2] = currentCollateralUSD * adapter.getLT() * 1e18 / RISK_PARAMS_PRECISION / currentDebtUSD;
         }
 
         if (isSupply) {
@@ -104,7 +104,7 @@ contract Sio2AdapterData is Initializable {
             if (currentDebtUSD == 0) {
                 later[2] = type(uint256).max;
             } else {
-                later[2] = (currentCollateralUSD + inputDelta) * collateralLT * 1e18 / RISK_PARAMS_PRECISION / currentDebtUSD;
+                later[2] = (currentCollateralUSD + inputDelta) * adapter.getLT() * 1e18 / RISK_PARAMS_PRECISION / currentDebtUSD;
             }
         } else {
             availableToBorrowUSD >= inputDeltaLTV ? 
@@ -116,8 +116,8 @@ contract Sio2AdapterData is Initializable {
             if (currentDebtUSD == 0) {
                 later[2] = type(uint256).max;
             } else {
-                currentCollateralUSD >= inputDelta + currentDebtUSD * RISK_PARAMS_PRECISION / collateralLT / 1e18 ?
-                    later[2] = (currentCollateralUSD - inputDelta) * collateralLT * 1e18 / RISK_PARAMS_PRECISION / currentDebtUSD :
+                currentCollateralUSD >= inputDelta + currentDebtUSD * RISK_PARAMS_PRECISION / adapter.getLT() / 1e18 ?
+                    later[2] = (currentCollateralUSD - inputDelta) * adapter.getLT() * 1e18 / RISK_PARAMS_PRECISION / currentDebtUSD :
                     later[2] = 0;
             }
         }
@@ -160,7 +160,7 @@ contract Sio2AdapterData is Initializable {
         } else if (currentCollateralUSD == 0 && debtUSD == 0) {
             before[2] = 0;
         } else {
-            before[2] = currentCollateralUSD * collateralLT * 1e18 / RISK_PARAMS_PRECISION / debtUSD;
+            before[2] = currentCollateralUSD * adapter.getLT() * 1e18 / RISK_PARAMS_PRECISION / debtUSD;
         }
 
         if (isBorrow) {
@@ -170,7 +170,7 @@ contract Sio2AdapterData is Initializable {
             } else {
                 later[1] = (debtUSD + amountUSD) * 1e18 / (debtUSD + availableToBorrowUSD);
             }
-            later[2] = currentCollateralUSD * collateralLT * 1e18 / RISK_PARAMS_PRECISION / (debtUSD + amountUSD);
+            later[2] = currentCollateralUSD * adapter.getLT() * 1e18 / RISK_PARAMS_PRECISION / (debtUSD + amountUSD);
         } else {
             if (debtUSD > amountUSD) {
                 later[0] = debtUSD - amountUSD;
@@ -181,7 +181,7 @@ contract Sio2AdapterData is Initializable {
                     later[1] = (debtUSD - amountUSD) * 1e18 / (debtUSD + availableToBorrowUSD);
                 }
                 
-                later[2] = currentCollateralUSD * collateralLT * 1e18 / RISK_PARAMS_PRECISION / (debtUSD - amountUSD);
+                later[2] = currentCollateralUSD * adapter.getLT() * 1e18 / RISK_PARAMS_PRECISION / (debtUSD - amountUSD);
             } else {
                 later[0] = 0;
                 later[1] = 0;

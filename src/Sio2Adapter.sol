@@ -78,6 +78,10 @@ contract Sio2Adapter is
 
     bool private _paused;
     address private _grantedOwner;
+    
+    // safety params changing Liquidation Threshold and Loan To Value
+    uint256 public ltvFactor;
+    uint256 public ltFactor;
 
     //Events
     event Supply(address indexed user, uint256 indexed amount);
@@ -141,6 +145,8 @@ contract Sio2Adapter is
             .getAssetParameters(address(nastr)); // set collateral params
         setMaxAmountToBorrow(15); // set the max amount of borrowed assets
         rewardsPrecision = 1e36;
+        setParamsFactors(8000, 12000);
+        _updateCollateralRewardsWeight();
 
         _updateLastSTokenBalance();
     }
@@ -430,7 +436,7 @@ contract Sio2Adapter is
             userInfo[_user].collateralAmount
         );
         hf =
-            (collateralUSD * collateralLT * 1e18) /
+            (collateralUSD * getLT() * 1e18) /
             RISK_PARAMS_PRECISION /
             debtUSD;
     }
@@ -852,12 +858,26 @@ contract Sio2Adapter is
         accCollateralRewardsPerShare *= 1e24;
         accSTokensPerShare *= 1e24;
 
+        setParamsFactors(8000, 12000);
+        _updateCollateralRewardsWeight();
+
         assetManager.updateParams();
     }
 
     /// @notice Sync a collateral rewards weight with the sio2 protocol
-    function updateCollateralRewardsWeight() external onlyOwner {
+    function _updateCollateralRewardsWeight() internal {
         collateralRewardsWeight = assetManager.getAssetWeight(address(nastr));
+    }
+
+    /// @notice Set params changing LT and LTV for safety reasons
+    /// @param _ltvFactor LoanToValue multiplier
+    /// @param _ltFactor LiquidationThreshold multiplier
+    /// @dev By default _ltvFactor == 8000 (80%) and _ltFactor == 12000 (120%)
+    ///      so ltv is decreases by 20% and lt increases by 20%
+    function setParamsFactors(uint256 _ltvFactor, uint256 _ltFactor) public onlyOwner {
+        require(_ltvFactor != 0 && _ltFactor != 0, "Params must be > 0");
+        ltvFactor = _ltvFactor;
+        ltFactor = _ltFactor;
     }
 
     /// @notice Disabling funcs with the whenNotPaused modifier
@@ -898,6 +918,16 @@ contract Sio2Adapter is
     // READERS
     //
     ////////////////////////////////////////////////////////////////////////////
+    
+    /// @notice Calculates active Liquidation Threshold
+    function getLT() public view returns (uint256) {
+        return collateralLT * ltFactor / 10_000;
+    }
+
+    /// @notice Calculates active Loan To Value
+    function getLTV() public view returns (uint256) {
+        return collateralLTV * ltvFactor / 10_000;
+    }
 
     /// @notice Convert tokens value to USD
     /// @param _asset Asset address

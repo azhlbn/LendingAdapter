@@ -325,10 +325,10 @@ contract Sio2AdapterAssetManager is Initializable, OwnableUpgradeable, Reentranc
         if (user.collateralAmount == 0) return (0, 0);
         uint256 debt = calcEstimateUserDebtUSD(_userAddr);
         uint256 userCollateral = calcEstimateUserCollateralUSD(_userAddr);
-        uint256 collateralAfterLTV = (userCollateral * adapter.collateralLTV()) /
+        uint256 collateralAfterLTV = (userCollateral * adapter.getLTV()) /
             1e4; // 1e4 is RISK_PARAMS_PRECISION
         if (collateralAfterLTV > debt) toBorrow = collateralAfterLTV - debt;
-        uint256 debtAfterLTV = (debt * 1e4) / adapter.collateralLTV();
+        uint256 debtAfterLTV = (debt * 1e4) / adapter.getLTV();
         if (userCollateral > debtAfterLTV)
             toWithdraw = userCollateral - debtAfterLTV;
     }
