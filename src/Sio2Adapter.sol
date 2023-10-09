@@ -145,7 +145,7 @@ contract Sio2Adapter is
             .getAssetParameters(address(nastr)); // set collateral params
         setMaxAmountToBorrow(15); // set the max amount of borrowed assets
         rewardsPrecision = 1e36;
-        setParamsFactors(8000, 12000);
+        setParamsFactors(8000, 8000);
         _updateCollateralRewardsWeight();
 
         _updateLastSTokenBalance();
