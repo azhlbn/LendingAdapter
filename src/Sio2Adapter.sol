@@ -694,7 +694,7 @@ contract Sio2Adapter is
             collateralRewardsWeight) / sumOfAssetShares;
         accCollateralRewardsPerShare +=
             (collateralRewards * rewardsPrecision) /
-            totalSupply;
+            snastrToken.balanceOf(address(this));
 
         emit HarvestRewards(msg.sender, _pendingRewards);
     }
