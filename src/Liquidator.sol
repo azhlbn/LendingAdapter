@@ -126,22 +126,20 @@ contract Liquidator is FlashLoanReceiverBase, AccessControl {
         require(initiator == address(this), "Initiator should be current contract");
 
         // do liquidations and collect collateral
-        for (uint256 idx; idx < assets.length;) {
+        for (uint256 idx; idx < assets.length; idx = _uncheckedIncr(idx)) {
             ERC20(assets[idx]).approve(address(adapter), amounts[idx]);
             uint256 receivedCollateral = adapter.liquidationCall(
                 ERC20(assets[idx]).symbol(),
                 currentUser,
                 amounts[idx]
             );
-
-            unchecked { ++idx; }
         }
 
         // swap all collateral to native astr
         _swapCollateralToASTR();
 
         // swap astr to tokens to repay flashloan
-        for (uint256 idx; idx < assets.length;) {
+        for (uint256 idx; idx < assets.length; idx = _uncheckedIncr(idx)) {
             address tokenB = assets[idx];
             uint256[] memory amountsIn = ROUTER.getAmountsIn(amounts[idx] + premiums[idx], pairToPath[wastrAddr][tokenB]);
             ROUTER.swapETHForExactTokens{value: amountsIn[0]}(
@@ -154,8 +152,6 @@ contract Liquidator is FlashLoanReceiverBase, AccessControl {
             // approve amounts to lending pool to transfer debt
             uint256 amountOwing = amounts[idx] + premiums[idx];
             IERC20(assets[idx]).approve(address(LENDING_POOL), amountOwing);
-
-            unchecked { ++idx; }
         }
 
         return true;
@@ -189,14 +185,13 @@ contract Liquidator is FlashLoanReceiverBase, AccessControl {
         uint256 totalDebtUSD;
         DebtAsset[] memory debtAssets = new DebtAsset[](len);
 
-        for (uint256 idx; idx < len;) {
+        for (uint256 idx; idx < len; idx = _uncheckedIncr(idx)) {
             debtAssets[idx].name = _names[idx];
             debtAssets[idx].debt = _debts[idx];
             totalDebtUSD += adapter.toUSD(
                 addrByName(debtAssets[idx].name),
                 debtAssets[idx].debt
             );
-            unchecked { ++idx; }
         }
 
         return (debtAssets, totalDebtUSD);
@@ -213,7 +208,7 @@ contract Liquidator is FlashLoanReceiverBase, AccessControl {
         address[] memory assetsUncut = new address[](len);
         uint256[] memory amountsUncut = new uint256[](len);
 
-        for (uint256 idx; idx < len; ) {
+        for (uint256 idx; idx < len; idx = _uncheckedIncr(idx)) {
             uint256 tokenBalUSD = getPriceUSD(_sortedDebtAssets[idx]);
             if (tokenBalUSD <= sumToLiquidateUSD - collectedSumUSD) {
                 assetsUncut[idx] = addrByName(_sortedDebtAssets[idx].name);
@@ -233,25 +228,19 @@ contract Liquidator is FlashLoanReceiverBase, AccessControl {
             }
 
             if (collectedSumUSD >= sumToLiquidateUSD) break;
-
-            unchecked {
-                ++idx;
-            }
         }
 
         uint256 trueLen;
-        for (uint256 idx; idx < len;) {
+        for (uint256 idx; idx < len; idx = _uncheckedIncr(idx)) {
             if (amountsUncut[idx] != 0) trueLen++;
-            unchecked { ++idx; }
         }
 
         address[] memory assets = new address[](trueLen);
         uint256[] memory amounts = new uint256[](trueLen);
 
-        for (uint256 idx; idx < trueLen;) {
+        for (uint256 idx; idx < trueLen; idx = _uncheckedIncr(idx)) {
             assets[idx] = assetsUncut[idx];
             amounts[idx] = amountsUncut[idx];
-            unchecked { ++idx; }
         }
 
         return (assets, amounts);
@@ -297,26 +286,17 @@ contract Liquidator is FlashLoanReceiverBase, AccessControl {
         assets = _assets;
         uint256 len = assets.length;
         bool swapped = false;
-        for (uint256 idx; idx < len - 1; ) {
-            for (uint256 j; j < len - idx - 1; ) {
+        for (uint256 idx; idx < len - 1; idx = _uncheckedIncr(idx)) {
+            for (uint256 j; j < len - idx - 1; j = _uncheckedIncr(j)) {
                 if (getPriceUSD((assets[j])) < getPriceUSD(assets[j + 1])) {
                     swapped = true;
                     DebtAsset memory s = assets[j + 1];
                     assets[j + 1] = assets[j];
                     assets[j] = s;
                 }
-                unchecked {
-                    ++j;
-                }
             }
 
-            if (!swapped) {
-                return assets;
-            }
-
-            unchecked {
-                ++idx;
-            }
+            if (!swapped) return assets;
         }
     }
 
@@ -363,9 +343,7 @@ contract Liquidator is FlashLoanReceiverBase, AccessControl {
         emit Withdraw(msg.sender, balance);
     }
 
-    event SomeEvent(address caller);
-
-    function eventEmitting() public {
-        emit SomeEvent(msg.sender);
+    function _uncheckedIncr(uint256 _i) internal pure returns (uint256) {
+        unchecked { return ++_i; }
     }
 }

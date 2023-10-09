@@ -858,7 +858,7 @@ contract Sio2Adapter is
         accCollateralRewardsPerShare *= 1e24;
         accSTokensPerShare *= 1e24;
 
-        setParamsFactors(8000, 12000);
+        setParamsFactors(8000, 8000);
         _updateCollateralRewardsWeight();
 
         assetManager.updateParams();
@@ -872,8 +872,8 @@ contract Sio2Adapter is
     /// @notice Set params changing LT and LTV for safety reasons
     /// @param _ltvFactor LoanToValue multiplier
     /// @param _ltFactor LiquidationThreshold multiplier
-    /// @dev By default _ltvFactor == 8000 (80%) and _ltFactor == 12000 (120%)
-    ///      so ltv is decreases by 20% and lt increases by 20%
+    /// @dev By default _ltvFactor == 8000 (80%) and _ltFactor == 8000 (80%)
+    ///      thus, ltv and lt are decreases by 20%
     function setParamsFactors(uint256 _ltvFactor, uint256 _ltFactor) public onlyOwner {
         require(_ltvFactor != 0 && _ltFactor != 0, "Params must be > 0");
         ltvFactor = _ltvFactor;
