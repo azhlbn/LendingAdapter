@@ -866,7 +866,7 @@ contract Sio2Adapter is
 
     /// @notice Sync a collateral rewards weight with the sio2 protocol
     function _updateCollateralRewardsWeight() internal {
-        collateralRewardsWeight = assetManager.getAssetWeight(address(nastr));
+        collateralRewardsWeight = assetManager.getAssetWeight(address(nastr), incentivesController);
     }
 
     /// @notice Set params changing LT and LTV for safety reasons

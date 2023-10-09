@@ -458,9 +458,7 @@ contract Sio2AdapterAssetManager is Initializable, OwnableUpgradeable, Reentranc
         return user.collateralAmount;
     }
 
-    function getAssetWeight(address _asset) external view returns (uint256) {
-        ISio2IncentivesController ic = adapter.incentivesController();
-
+    function getAssetWeight(address _asset, ISio2IncentivesController _ic) external view returns (uint256) {
         address[] memory assetsList = pool.getReservesList();
         uint256 sumOfCollateralWeights;
         uint256 assetLength = assetsList.length;
@@ -468,11 +466,11 @@ contract Sio2AdapterAssetManager is Initializable, OwnableUpgradeable, Reentranc
         for (uint256 i; i < assetLength; i = _incrementUnchecked(i)) {
             DataTypes.ReserveData memory data = pool.getReserveData(assetsList[i]);
             address sTokenAddress = data.STokenAddress;
-            (uint256 initSupply, , , , ) = ic.assets(sTokenAddress);
+            (uint256 initSupply, , , , ) = _ic.assets(sTokenAddress);
             sumOfCollateralWeights += initSupply;
         }
 
-        (uint256 assetWeight, , , , ) = ic.assets(_asset);
+        (uint256 assetWeight, , , , ) = _ic.assets(_asset);
         return assetWeight * 1e2 / sumOfCollateralWeights;
     }
 
