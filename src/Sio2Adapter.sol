@@ -784,15 +784,6 @@ contract Sio2Adapter is
             }
         }
 
-        // harvest sio2 rewards for user's collateral
-        user.rewards +=
-            (user.collateralAmount * accCollateralRewardsPerShare) /
-            rewardsPrecision -
-            user.collateralRewardDebt;
-        user.collateralRewardDebt =
-            (user.collateralAmount * accCollateralRewardsPerShare) /
-            rewardsPrecision;
-
         // user collateral update
         uint256 collateralToHarvest = (user.collateralAmount *
             accSTokensPerShare) /
@@ -801,6 +792,15 @@ contract Sio2Adapter is
         user.collateralAmount += collateralToHarvest;
         user.sTokensIncomeDebt =
             (user.collateralAmount * accSTokensPerShare) /
+            rewardsPrecision;
+
+        // harvest sio2 rewards for user's collateral
+        user.rewards +=
+            (user.collateralAmount * accCollateralRewardsPerShare) /
+            rewardsPrecision -
+            user.collateralRewardDebt;
+        user.collateralRewardDebt =
+            (user.collateralAmount * accCollateralRewardsPerShare) /
             rewardsPrecision;
 
         // increase the total amount of collateral by the received user collateral
