@@ -6,9 +6,15 @@ import "@openzeppelin-upgradeable/contracts/token/ERC20/ERC20Upgradeable.sol";
 import "@openzeppelin-upgradeable/contracts/security/ReentrancyGuardUpgradeable.sol";
 import "./interfaces/ISio2LendingPool.sol";
 import "./interfaces/IAdaptersDistributor.sol";
+import "./interfaces/ISio2AdapterAssetManager.sol";
 import "./Sio2Adapter.sol";
 
-contract Sio2AdapterAssetManager is Initializable, OwnableUpgradeable, ReentrancyGuardUpgradeable {
+contract Sio2AdapterAssetManager is
+    ISio2AdapterAssetManager,
+    Initializable, 
+    OwnableUpgradeable, 
+    ReentrancyGuardUpgradeable 
+{
     using ReserveConfiguration for DataTypes.ReserveConfigurationMap; // used to extract risk parameters of an asset
 
     ISio2LendingPool public pool;
@@ -24,6 +30,10 @@ contract Sio2AdapterAssetManager is Initializable, OwnableUpgradeable, Reentranc
     uint256 public maxNumberOfAssets;
     uint256 private rewardsPrecision; // A big number to perform mul and div operations
     address private _grantedOwner;
+
+    // safety params changing Liquidation Threshold and Loan To Value
+    uint256 public ltvFactor;
+    uint256 public ltFactor;
 
     struct Asset {
         uint256 id;
@@ -41,14 +51,6 @@ contract Sio2AdapterAssetManager is Initializable, OwnableUpgradeable, Reentranc
 
     IAdaptersDistributor public constant ADAPTERS_DISTRIBUTOR = IAdaptersDistributor(0x294Bb6b8e692543f373383A84A1f296D3C297aEf);
 
-    event AddAsset(address owner, string indexed assetName, address indexed assetAddress);
-    event SwitchAssetStatus(address indexed owner, string indexed assetName, bool indexed _isActive);
-    event SetAdapter(address who, address adapterAddress);
-    event UpdateBalSuccess(address user, string utilityName, uint256 amount);
-    event UpdateBalError(address user, string utilityName, uint256 amount, string reason);
-    event Paused(address account);
-    event Unpaused(address account);
-
     /// @custom:oz-upgrades-unsafe-allow constructor
     constructor() {
         _disableInitializers();
@@ -61,18 +63,19 @@ contract Sio2AdapterAssetManager is Initializable, OwnableUpgradeable, Reentranc
         __Ownable_init();
         __ReentrancyGuard_init();
 
-        require(address(_pool) != address(0), "Lending pool address cannot be zero");
-        require(_snastr != address(0), "snASTR address cannot be zero");
+        if (address(_pool) == address(0)) revert ZeroAddressLP();
+        if (_snastr == address(0)) revert ZeroAddressSNA();
 
         bTokens.push(_snastr);
 
         pool = _pool;
         rewardsPrecision = 1e36;
         _setMaxNumberOfAssets(30);
+        setParamsFactors(8000, 8000);
     }
 
     modifier onlyAdapter() {
-        require(msg.sender == address(adapter), "Allowed only for adapter");
+        if (msg.sender != address(adapter)) revert AllowedOnlyForAdapter();
         _;
     }
 
@@ -93,9 +96,9 @@ contract Sio2AdapterAssetManager is Initializable, OwnableUpgradeable, Reentranc
         address _bToken,
         uint256 _rewardsWeight
     ) public onlyOwner {
-        require(assetInfo[_assetName].addr == address(0), "Asset already added");
-        require(keccak256(abi.encodePacked(_assetName)) != keccak256(""), "Empty asset name");
-        require(assets.length < maxNumberOfAssets, "Assets limit reached");
+        if (assetInfo[_assetName].addr != address(0)) revert AlreadyAdded();
+        if (keccak256(abi.encodePacked(_assetName)) == keccak256("")) revert EmptyAssetName();
+        if (assets.length >= maxNumberOfAssets) revert AssetsLimitReached();
 
         // get liquidationThreshold for asset from sio2
         DataTypes.ReserveConfigurationMap memory data = pool.getConfiguration(_assetAddress);
@@ -128,8 +131,8 @@ contract Sio2AdapterAssetManager is Initializable, OwnableUpgradeable, Reentranc
     function switchAssetStatus(string memory _assetName, bool _isActive) external onlyOwner {
         Asset storage asset = assetInfo[_assetName];
 
-        require(asset.addr != address(0), "There is no such asset");
-        require(asset.isActive != _isActive, "Status must be diff from the existing");
+        if (asset.addr == address(0)) revert NoSuchAsset();
+        if (asset.isActive == _isActive) revert SameStatus();
         
         asset.isActive = _isActive;
 
@@ -189,13 +192,27 @@ contract Sio2AdapterAssetManager is Initializable, OwnableUpgradeable, Reentranc
     }
 
     function _setMaxNumberOfAssets(uint256 _num) internal {
-        require(_num > 0, "Cannot be equal to zero");
+        if (_num == 0) revert ZeroNumber();
         maxNumberOfAssets = _num;
+    }
+
+    /// @notice Set params changing LT and LTV for safety reasons
+    /// @dev By default _ltvFactor == 8000 (80%) and _ltFactor == 8000 (80%)
+    ///      thus, ltv and lt are decreases by 20%
+    function setParamsFactors(uint256 _ltvFactor, uint256 _ltFactor) public onlyOwner {
+        _setParamsFactors(_ltvFactor, _ltFactor);
+    }
+
+    function _setParamsFactors(uint256 _ltvFactor, uint256 _ltFactor) internal {
+        if (_ltvFactor == 0 || _ltFactor == 0) revert ZeroParams();
+        ltvFactor = _ltvFactor;
+        ltFactor = _ltFactor;
     }
 
     function updateParams() external onlyAdapter {
         rewardsPrecision = 1e36;
         _setMaxNumberOfAssets(30);
+        _setParamsFactors(8000, 8000);
         uint256 len = assets.length;
         // sync accumulated values
         for (uint256 i; i < len; i = _incrementUnchecked(i)) {
@@ -214,14 +231,14 @@ contract Sio2AdapterAssetManager is Initializable, OwnableUpgradeable, Reentranc
 
     /// @notice propose a new owner
     function grantOwnership(address _newOwner) external onlyOwner {
-        require(_newOwner != address(0), "Owner cannot be a zero address");
-        require(_newOwner != owner(), "New owner shouldn't match the current one");
+        if (_newOwner == address(0)) revert ZeroAddressOwner();
+        if (_newOwner == owner()) revert SameOwner();
         _grantedOwner = _newOwner;
     }
 
     /// @notice claim ownership by granted address
     function claimOwnership() external {
-        require(_grantedOwner == msg.sender, "Caller is not the granted owner");
+        if (_grantedOwner != msg.sender) revert CallerIsNotGrantedOwner();
         _transferOwnership(_grantedOwner);
         _grantedOwner = address(0);
     }
@@ -325,10 +342,10 @@ contract Sio2AdapterAssetManager is Initializable, OwnableUpgradeable, Reentranc
         if (user.collateralAmount == 0) return (0, 0);
         uint256 debt = calcEstimateUserDebtUSD(_userAddr);
         uint256 userCollateral = calcEstimateUserCollateralUSD(_userAddr);
-        uint256 collateralAfterLTV = (userCollateral * adapter.getLTV()) /
+        uint256 collateralAfterLTV = (userCollateral * getLTV()) /
             1e4; // 1e4 is RISK_PARAMS_PRECISION
         if (collateralAfterLTV > debt) toBorrow = collateralAfterLTV - debt;
-        uint256 debtAfterLTV = (debt * 1e4) / adapter.getLTV();
+        uint256 debtAfterLTV = (debt * 1e4) / getLTV();
         if (userCollateral > debtAfterLTV)
             toWithdraw = userCollateral - debtAfterLTV;
     }
@@ -472,6 +489,40 @@ contract Sio2AdapterAssetManager is Initializable, OwnableUpgradeable, Reentranc
 
         (uint256 assetWeight, , , , ) = _ic.assets(_asset);
         return assetWeight * 1e2 / sumOfCollateralWeights;
+    }
+
+    /// @notice Calculates active Liquidation Threshold
+    function getLT() public view returns (uint256) {
+        return adapter.collateralLT() * ltFactor / 10_000;
+    }
+
+    /// @notice Calculates active Loan To Value
+    function getLTV() public view returns (uint256) {
+        return adapter.collateralLTV() * ltvFactor / 10_000;
+    }
+
+    /// @notice Convert tokens value to USD
+    /// @param _asset Asset address
+    /// @param _amount Amount of token with 18 decimals
+    /// @return USD price with 18 decimals
+    function toUSD(
+        address _asset,
+        uint256 _amount
+    ) public view returns (uint256) {
+        uint256 price = ISio2PriceOracle(adapter.priceOracle()).getAssetPrice(_asset);
+        return (_amount * price) / 1e8;
+    }
+
+    /// @notice Convert tokens value from USD
+    /// @param _asset Asset address
+    /// @param _amount Price in USD with 18 decimals
+    /// @return Token amount with 18 decimals
+    function fromUSD(
+        address _asset,
+        uint256 _amount
+    ) public view returns (uint256) {
+        uint256 price = ISio2PriceOracle(adapter.priceOracle()).getAssetPrice(_asset);
+        return (_amount * 1e8) / price;
     }
 
     function _incrementUnchecked(uint256 i) internal pure returns (uint256) {

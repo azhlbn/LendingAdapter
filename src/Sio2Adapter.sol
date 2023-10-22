@@ -8,10 +8,12 @@ import "@openzeppelin-upgradeable/contracts/security/ReentrancyGuardUpgradeable.
 import "./interfaces/ISio2LendingPool.sol";
 import "./interfaces/ISio2PriceOracle.sol";
 import "./interfaces/ISio2IncentivesController.sol";
+import "./interfaces/ISio2Adapter.sol";
 import "./interfaces/IWASTR.sol";
 import "./Sio2AdapterAssetManager.sol";
 
 contract Sio2Adapter is
+    ISio2Adapter,
     Initializable,
     OwnableUpgradeable,
     ReentrancyGuardUpgradeable
@@ -77,44 +79,7 @@ contract Sio2Adapter is
     uint256 public collateralRewardsWeight; // share of all sio2 collateral rewards
 
     bool private _paused;
-    address private _grantedOwner;
-    
-    // safety params changing Liquidation Threshold and Loan To Value
-    uint256 public ltvFactor;
-    uint256 public ltFactor;
-
-    //Events
-    event Supply(address indexed user, uint256 indexed amount);
-    event Withdraw(address indexed user, uint256 indexed amount);
-    event Borrow(
-        address indexed who,
-        string indexed assetName,
-        uint256 indexed amount
-    );
-    event AddSToken(address indexed who, uint256 indexed amount);
-    event LiquidationCall(
-        address indexed liquidatorAddr,
-        address indexed userAddr,
-        string indexed debtAsset,
-        uint256 debtToCover
-    );
-    event ClaimRewards(address indexed who, uint256 rewardsToClaim);
-    event WithdrawRevenue(address indexed who, uint256 indexed amount);
-    event Repay(
-        address indexed who,
-        address indexed user,
-        string indexed assetName,
-        uint256 amount
-    );
-    event Updates(address indexed who, address indexed user);
-    event RemoveAssetFromUser(address indexed user, string assetName);
-    event HarvestRewards(address indexed who, uint256 pendingRewards);
-    event UpdatePools(address indexed who);
-    event UpdateUserRewards(address indexed user);
-    event RemoveUser(address indexed user);
-    event UpdateLastSTokenBalance(address indexed who, uint256 currentBalance);
-    event Paused(address account);
-    event Unpaused(address account);
+    address private _grantedOwner;    
 
     /// @custom:oz-upgrades-unsafe-allow constructor
     constructor() {
@@ -145,7 +110,6 @@ contract Sio2Adapter is
             .getAssetParameters(address(nastr)); // set collateral params
         setMaxAmountToBorrow(15); // set the max amount of borrowed assets
         rewardsPrecision = 1e36;
-        setParamsFactors(8000, 8000);
         _updateCollateralRewardsWeight();
 
         _updateLastSTokenBalance();
@@ -158,25 +122,19 @@ contract Sio2Adapter is
     }
 
     modifier whenNotPaused() {
-        require(!_paused, "Not available when paused");
+        if (_paused) revert OnPause();
         _;
     }
 
     receive() external payable {
-        require(
-            msg.sender == address(WASTR),
-            "Transfer ASTR to adapter allowed only for WASTR"
-        );
+        if (msg.sender != address(WASTR)) revert TransferNotAllowed();
     }
 
     /// @notice Supply nASTR tokens as collateral
     /// @param _amount Number of nASTR tokens sended to supply
     function supply(uint256 _amount) external update(msg.sender) nonReentrant whenNotPaused {
-        require(_amount > 0, "Should be greater than zero");
-        require(
-            nastr.balanceOf(msg.sender) >= _amount,
-            "Not enough nASTR tokens on the user balance"
-        );
+        if (_amount == 0) revert ZeroAmountSupply();
+        if (nastr.balanceOf(msg.sender) < _amount) revert NotEnoughNastr();
 
         User storage user = userInfo[msg.sender];
 
@@ -216,17 +174,14 @@ contract Sio2Adapter is
         address _user,
         uint256 _amount
     ) private nonReentrant returns (uint256) {
-        require(_amount > 0, "Should be greater than zero");
+        if (_amount == 0) revert ZeroAmountWithdraw();
 
         // check ltv condition in case of user's call
         if (msg.sender == _user) {
             (, uint256 availableColToWithdraw) = assetManager
                 .availableCollateralUSD(_user);
-            require(
-                // user can't withdraw collateral if his debt is too large
-                availableColToWithdraw >= toUSD(address(nastr), _amount),
-                "Not enough deposited nASTR"
-            );
+            // user can't withdraw collateral if his debt is too large
+            if (availableColToWithdraw < toUSD(address(nastr), _amount)) revert NotEnoughCollateralWithdraw();
         }
 
         // get nASTR tokens from lending pool
@@ -266,15 +221,12 @@ contract Sio2Adapter is
         uint256 _amount
     ) external update(msg.sender) nonReentrant whenNotPaused {
         Sio2AdapterAssetManager.Asset memory asset = assetManager.getAssetInfo(_assetName);
-        require(asset.isActive, "Asset is not active");
+        if (!asset.isActive) revert AssetIsNotActive();
         (uint256 availableColToBorrow, ) = assetManager.availableCollateralUSD(
             msg.sender
         );
-        require(
-            toUSD(asset.addr, _amount) <= availableColToBorrow,
-            "Not enough collateral to borrow"
-        );
-        require(asset.addr != address(0), "Wrong asset!");
+        if (toUSD(asset.addr, _amount) > availableColToBorrow) revert NotEnoughCollateralBorrow();
+        if (asset.addr == address(0)) revert WrongAssetBorrow();
 
         uint256 nativeAmount = assetManager.toNativeDecFormat(asset.addr, _amount);
         uint256 roundedAmount = assetManager.to18DecFormat(asset.addr, nativeAmount);
@@ -291,10 +243,7 @@ contract Sio2Adapter is
             keccak256(abi.encodePacked(user.borrowedAssets[assetId])) !=
             keccak256(abi.encodePacked(_assetName))
         ) {
-            require(
-                user.borrowedAssets.length < maxAmountToBorrow,
-                "Max amount of borrowed assets has been reached"
-            );
+            if (user.borrowedAssets.length >= maxAmountToBorrow) revert MaxAmountBassetsReached();
             userBorrowedAssetID[msg.sender][_assetName] = user
                 .borrowedAssets
                 .length;
@@ -343,10 +292,7 @@ contract Sio2Adapter is
     /// @notice Needed to transfer collateral position to adapter
     /// @param _amount Amount of supply tokens to deposit
     function addSTokens(uint256 _amount) external update(msg.sender) whenNotPaused {
-        require(
-            snastrToken.balanceOf(msg.sender) >= _amount,
-            "Not enough sTokens on user balance"
-        );
+        if (snastrToken.balanceOf(msg.sender) < _amount) revert NotEnoughStokens();
 
         User storage user = userInfo[msg.sender];
 
@@ -387,7 +333,7 @@ contract Sio2Adapter is
         (uint256 hf, uint256 userTotalDebtInUSD) = getLiquidationParameters(
             _user
         );
-        require(hf < 1e18, "User has healthy enough position");
+        if (hf >= 1e18) revert PosIsHealthyEnough();
 
         // get user's debt in a specific asset
         uint256 userDebtInAsset = debts[_user][_debtAsset];
@@ -395,14 +341,8 @@ contract Sio2Adapter is
         uint256 debtToCoverUSD = toUSD(debtAssetAddr, _debtToCover);
 
         // make sure that _debtToCover not exceeds 50% of user total debt and 100% of chosen asset debt
-        require(
-            _debtToCover <= userDebtInAsset,
-            "_debtToCover exceeds the user's debt amount"
-        );
-        require(
-            debtToCoverUSD <= userTotalDebtInUSD / 2,
-            "Debt to cover need to be lower than 50% of users debt"
-        );
+        if (_debtToCover > userDebtInAsset) revert TooLargeLiquidationAmount();
+        if (debtToCoverUSD > userTotalDebtInUSD / 2) revert FiftyPercentExceeded();
 
         // repay debt for user by liquidator
         _repay(_debtAsset, _debtToCover, _user);
@@ -430,13 +370,13 @@ contract Sio2Adapter is
         address _user
     ) public update(_user) returns (uint256 hf, uint256 debtUSD) {
         debtUSD = assetManager.calcEstimateUserDebtUSD(_user);
-        require(debtUSD > 0, "User has no debts");
+        if (debtUSD == 0) revert UserHasNoDebt();
         uint256 collateralUSD = toUSD(
             address(nastr),
             userInfo[_user].collateralAmount
         );
         hf =
-            (collateralUSD * getLT() * 1e18) /
+            (collateralUSD * assetManager.getLT() * 1e18) /
             RISK_PARAMS_PRECISION /
             debtUSD;
     }
@@ -515,7 +455,7 @@ contract Sio2Adapter is
     /// @notice Claim rewards by user
     function claimRewards() external update(msg.sender) whenNotPaused {
         User storage user = userInfo[msg.sender];
-        require(user.rewards > 0, "User has no any rewards");
+        if (user.rewards == 0) revert UserHasNoAnyRewards();
         uint256 rewardsToClaim = user.rewards;
         user.rewards = 0;
         rewardPool -= rewardsToClaim;
@@ -548,23 +488,17 @@ contract Sio2Adapter is
             // add missing zeros for correct calculations if needed
             userBal = assetManager.to18DecFormat(assetAddress, userBal);
 
-            require(userBal >= roundedAmount, "Not enough wallet balance to repay");
-            require(msg.value == 0, "Sending ASTR not allowed for this asset");
+            if (userBal < roundedAmount) revert NotEnoughBalanceRepay();
+            if (msg.value != 0) revert ValueMustBeEqZero();
         }
 
         // check balance of user or liquidator
-        require(
-            debts[_user][_assetName] > 0,
-            "The user has no debt in this asset"
-        );
-        require(roundedAmount > 0, "Amount should be greater than zero");
-        require(
-            debts[_user][_assetName] >= roundedAmount,
-            "Too large amount, debt is smaller"
-        );
+        if (debts[_user][_assetName] == 0) revert NoDebtInThisAsset();
+        if (roundedAmount == 0) revert ZeroAmountRepay();
+        if (debts[_user][_assetName] < roundedAmount) revert TooLargeAmount();
 
         if (assetAddress == address(WASTR)) {
-            require(msg.value >= roundedAmount, "msg.value must be >= _amount");
+            if (msg.value < roundedAmount) revert NotEnoughValue();
             // return diff back to user
             if (msg.value > roundedAmount)
                 payable(msg.sender).sendValue(msg.value - roundedAmount);
@@ -829,12 +763,9 @@ contract Sio2Adapter is
     /// @notice Withdraw revenue by owner
     /// @param _amount Amount of sio2 tokens
     function withdrawRevenue(uint256 _amount) external onlyOwner {
-        require(_amount > 0, "Should be greater than zero");
-        require(
-            rewardToken.balanceOf(address(this)) >= _amount,
-            "Not enough SIO2 revenue tokens"
-        );
-        require(_amount <= revenuePool, "Not enough tokens in revenue pool");
+        if (_amount == 0) revert ZeroAmountWithdrawRevenue();
+        if (rewardToken.balanceOf(address(this)) < _amount) revert NotEnoughRevenueTokens();
+        if (_amount > revenuePool) revert AmountExceedsRevenuePool();
 
         revenuePool -= _amount;
         rewardToken.safeTransfer(msg.sender, _amount);
@@ -850,7 +781,7 @@ contract Sio2Adapter is
 
     /// @notice Sets internal parameters for proper operation
     function updateParams() external onlyOwner {
-        require(rewardsPrecision != 1e36, "Already been updated");
+        if(rewardsPrecision == 1e36) revert AlreadyUpdated();
 
         rewardsPrecision = 1e36;
         
@@ -858,7 +789,6 @@ contract Sio2Adapter is
         accCollateralRewardsPerShare *= 1e24;
         accSTokensPerShare *= 1e24;
 
-        setParamsFactors(8000, 8000);
         _updateCollateralRewardsWeight();
 
         assetManager.updateParams();
@@ -867,17 +797,6 @@ contract Sio2Adapter is
     /// @notice Sync a collateral rewards weight with the sio2 protocol
     function _updateCollateralRewardsWeight() internal {
         collateralRewardsWeight = assetManager.getAssetWeight(address(nastr), incentivesController);
-    }
-
-    /// @notice Set params changing LT and LTV for safety reasons
-    /// @param _ltvFactor LoanToValue multiplier
-    /// @param _ltFactor LiquidationThreshold multiplier
-    /// @dev By default _ltvFactor == 8000 (80%) and _ltFactor == 8000 (80%)
-    ///      thus, ltv and lt are decreases by 20%
-    function setParamsFactors(uint256 _ltvFactor, uint256 _ltFactor) public onlyOwner {
-        require(_ltvFactor != 0 && _ltFactor != 0, "Params must be > 0");
-        ltvFactor = _ltvFactor;
-        ltFactor = _ltFactor;
     }
 
     /// @notice Disabling funcs with the whenNotPaused modifier
@@ -895,14 +814,14 @@ contract Sio2Adapter is
     /// @notice propose a new owner
     /// @param _newOwner => new contract owner
     function grantOwnership(address _newOwner) external onlyOwner {
-        require(_newOwner != address(0), "Owner cannot be a zero address");
-        require(_newOwner != owner(), "New owner shouldn't match the current one");
+        if (_newOwner == address(0)) revert OwnerCannotBeZeroAddress();
+        if (_newOwner == owner()) revert NewOwnerSameAsPrevious();
         _grantedOwner = _newOwner;
     }
 
     /// @notice claim ownership by granted address
     function claimOwnership() external {
-        require(_grantedOwner == msg.sender, "Caller is not the granted owner");
+        if (_grantedOwner != msg.sender) revert CallerIsNotGrantedOwner();
         _transferOwnership(_grantedOwner);
         _grantedOwner = address(0);
     }
@@ -918,16 +837,6 @@ contract Sio2Adapter is
     // READERS
     //
     ////////////////////////////////////////////////////////////////////////////
-    
-    /// @notice Calculates active Liquidation Threshold
-    function getLT() public view returns (uint256) {
-        return collateralLT * ltFactor / 10_000;
-    }
-
-    /// @notice Calculates active Loan To Value
-    function getLTV() public view returns (uint256) {
-        return collateralLTV * ltvFactor / 10_000;
-    }
 
     /// @notice Convert tokens value to USD
     /// @param _asset Asset address
@@ -937,8 +846,7 @@ contract Sio2Adapter is
         address _asset,
         uint256 _amount
     ) public view returns (uint256) {
-        uint256 price = priceOracle.getAssetPrice(_asset);
-        return (_amount * price) / PRICE_PRECISION;
+        return assetManager.toUSD(_asset, _amount);
     }
 
     /// @notice Convert tokens value from USD
@@ -949,8 +857,7 @@ contract Sio2Adapter is
         address _asset,
         uint256 _amount
     ) public view returns (uint256) {
-        uint256 price = priceOracle.getAssetPrice(_asset);
-        return (_amount * PRICE_PRECISION) / price;
+        return assetManager.fromUSD(_asset, _amount);
     }
 
     /// @notice Get user info
@@ -970,4 +877,3 @@ contract Sio2Adapter is
         return users.length;
     }
 }
-
