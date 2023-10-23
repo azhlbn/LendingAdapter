@@ -51,6 +51,8 @@ contract Sio2AdapterAssetManager is
 
     IAdaptersDistributor public constant ADAPTERS_DISTRIBUTOR = IAdaptersDistributor(0x294Bb6b8e692543f373383A84A1f296D3C297aEf);
 
+    uint256 private constant PRICE_PRECISION = 1e8;
+
     /// @custom:oz-upgrades-unsafe-allow constructor
     constructor() {
         _disableInitializers();
@@ -510,7 +512,7 @@ contract Sio2AdapterAssetManager is
         uint256 _amount
     ) public view returns (uint256) {
         uint256 price = ISio2PriceOracle(adapter.priceOracle()).getAssetPrice(_asset);
-        return (_amount * price) / 1e8;
+        return (_amount * price) / PRICE_PRECISION;
     }
 
     /// @notice Convert tokens value from USD
@@ -522,7 +524,7 @@ contract Sio2AdapterAssetManager is
         uint256 _amount
     ) public view returns (uint256) {
         uint256 price = ISio2PriceOracle(adapter.priceOracle()).getAssetPrice(_asset);
-        return (_amount * 1e8) / price;
+        return (_amount * PRICE_PRECISION) / price;
     }
 
     function _incrementUnchecked(uint256 i) internal pure returns (uint256) {

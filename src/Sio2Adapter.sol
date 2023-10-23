@@ -45,7 +45,6 @@ contract Sio2Adapter is
     uint256 public accSTokensPerShare; // accumulated sTokens per share
 
     uint256 private constant RISK_PARAMS_PRECISION = 1e4;
-    uint256 private constant PRICE_PRECISION = 1e8;
     uint256 private constant SHARES_PRECISION = 1e36;
     uint256 public constant REVENUE_FEE = 10; // 10% of rewards goes to the revenue pool
 
