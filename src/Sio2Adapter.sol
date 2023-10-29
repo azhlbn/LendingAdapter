@@ -131,7 +131,7 @@ contract Sio2Adapter is
 
     /// @notice Supply nASTR tokens as collateral
     /// @param _amount Number of nASTR tokens sended to supply
-    function supply(uint256 _amount) external update(msg.sender) nonReentrant whenNotPaused {
+    function supply(uint256 _amount) external update(msg.sender) nonReentrant {
         if (_amount == 0) revert ZeroAmountSupply();
         if (nastr.balanceOf(msg.sender) < _amount) revert NotEnoughNastr();
 
@@ -162,7 +162,7 @@ contract Sio2Adapter is
 
     /// @notice Used to withdraw a deposit by a user
     /// @param _amount Amount of tokens to withdraw
-    function withdraw(uint256 _amount) external update(msg.sender) whenNotPaused {
+    function withdraw(uint256 _amount) external update(msg.sender) {
         _withdraw(msg.sender, _amount);
     }
 
@@ -290,7 +290,7 @@ contract Sio2Adapter is
 
     /// @notice Needed to transfer collateral position to adapter
     /// @param _amount Amount of supply tokens to deposit
-    function addSTokens(uint256 _amount) external update(msg.sender) whenNotPaused {
+    function addSTokens(uint256 _amount) external update(msg.sender) {
         if (snastrToken.balanceOf(msg.sender) < _amount) revert NotEnoughStokens();
 
         User storage user = userInfo[msg.sender];
@@ -452,7 +452,7 @@ contract Sio2Adapter is
     }
 
     /// @notice Claim rewards by user
-    function claimRewards() external update(msg.sender) whenNotPaused {
+    function claimRewards() external update(msg.sender) {
         User storage user = userInfo[msg.sender];
         if (user.rewards == 0) revert UserHasNoAnyRewards();
         uint256 rewardsToClaim = user.rewards;
@@ -471,7 +471,7 @@ contract Sio2Adapter is
         string memory _assetName,
         uint256 _amount,
         address _user
-    ) private whenNotPaused {
+    ) private {
         Sio2AdapterAssetManager.Asset memory repayAsset = assetManager.getAssetInfo(_assetName);
         address assetAddress = repayAsset.addr;
 
