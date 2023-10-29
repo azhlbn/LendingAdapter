@@ -59,7 +59,7 @@ contract Sio2AdapterData is Initializable {
         // calc est user's debt
         uint256 debtUSD = assetManager.calcEstimateUserDebtUSD(_user);
 
-        require(debtUSD > 0, "User has no debts");
+        if (debtUSD == 0) return ~uint256(0);
 
         hf = (collateralUSD * assetManager.getLT() * 1e18) /
             RISK_PARAMS_PRECISION / debtUSD;

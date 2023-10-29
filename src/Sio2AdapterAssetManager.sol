@@ -8,6 +8,8 @@ import "./interfaces/ISio2LendingPool.sol";
 import "./interfaces/IAdaptersDistributor.sol";
 import "./interfaces/ISio2AdapterAssetManager.sol";
 import "./Sio2Adapter.sol";
+import "./interfaces/ISio2IncentivesController.sol";
+import "./interfaces/ISio2PriceOracle.sol";
 
 contract Sio2AdapterAssetManager is
     ISio2AdapterAssetManager,
@@ -53,10 +55,10 @@ contract Sio2AdapterAssetManager is
 
     uint256 private constant PRICE_PRECISION = 1e8;
 
-    /// @custom:oz-upgrades-unsafe-allow constructor
-    constructor() {
-        _disableInitializers();
-    }
+    // /// @custom:oz-upgrades-unsafe-allow constructor
+    // constructor() {
+    //     _disableInitializers();
+    // }
 
     function initialize(
         ISio2LendingPool _pool,
