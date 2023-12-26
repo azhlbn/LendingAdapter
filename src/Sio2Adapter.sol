@@ -322,7 +322,7 @@ contract Sio2Adapter is
         string memory _debtAsset,
         address _user,
         uint256 _debtToCover
-    ) external returns (uint256) {
+    ) external payable returns (uint256) {
         Sio2AdapterAssetManager.Asset memory asset = assetManager.getAssetInfo(
             _debtAsset
         );
@@ -780,22 +780,12 @@ contract Sio2Adapter is
 
     /// @notice Sets internal parameters for proper operation
     function updateParams() external onlyOwner {
-        if(rewardsPrecision == 1e36) revert AlreadyUpdated();
-
-        rewardsPrecision = 1e36;
-        
-        // sync accumulated rewards
-        accCollateralRewardsPerShare *= 1e24;
-        accSTokensPerShare *= 1e24;
-
         _updateCollateralRewardsWeight();
-
-        assetManager.updateParams();
     }
 
     /// @notice Sync a collateral rewards weight with the sio2 protocol
     function _updateCollateralRewardsWeight() internal {
-        collateralRewardsWeight = assetManager.getAssetWeight(address(nastr), incentivesController);
+        collateralRewardsWeight = assetManager.getAssetWeight(address(snastrToken), incentivesController);
     }
 
     /// @notice Disabling funcs with the whenNotPaused modifier
@@ -830,6 +820,12 @@ contract Sio2Adapter is
 
     /// @notice Disabling transfer and renounce of ownership for security reasons 
     function renounceOwnership() public override { revert("Not allowed"); }
+
+    function redirectRewardTokens(uint256 _amount) external onlyOwner {
+        if (_amount > revenuePool) revert WrongAmountRedirect();
+        revenuePool -= _amount;
+        rewardPool += _amount;
+    }
     
     ////////////////////////////////////////////////////////////////////////////
     //
@@ -874,5 +870,9 @@ contract Sio2Adapter is
     /// @notice Get length of users array
     function getUsersCount() external view returns (uint256) {
         return users.length;
+    }
+
+    function onPause() external view returns (bool) {
+        return _paused;
     }
 }
