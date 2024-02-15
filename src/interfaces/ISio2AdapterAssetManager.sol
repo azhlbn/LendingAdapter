@@ -6,6 +6,7 @@ interface ISio2AdapterAssetManager {
     event SwitchAssetStatus(address indexed owner, string indexed assetName, bool indexed _isActive);
     event SetAdapter(address who, address adapterAddress);
     event UpdateBalSuccess(address user, string utilityName, uint256 amount);
+    event UpdateBalError(address user, string utilityName, uint256 amount, string reason);
     event Paused(address account);
     event Unpaused(address account);
 

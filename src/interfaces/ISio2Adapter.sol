@@ -120,7 +120,4 @@ interface ISio2Adapter {
 
     /// @notice Amount too large
     error AmountExceedsRevenuePool();    
-
-    /// @notice Wrong amount due too redirect reward tokens
-    error WrongAmountRedirect();    
 }

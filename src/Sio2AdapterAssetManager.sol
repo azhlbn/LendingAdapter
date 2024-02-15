@@ -55,10 +55,10 @@ contract Sio2AdapterAssetManager is
 
     uint256 private constant PRICE_PRECISION = 1e8;
 
-    /// @custom:oz-upgrades-unsafe-allow constructor
-    constructor() {
-        _disableInitializers();
-    }
+    // /// @custom:oz-upgrades-unsafe-allow constructor
+    // constructor() {
+    //     _disableInitializers();
+    // }
 
     function initialize(
         ISio2LendingPool _pool,
@@ -176,12 +176,17 @@ contract Sio2AdapterAssetManager is
     function updateBalanceInAdaptersDistributor(address _user) external onlyAdapter {
         Sio2Adapter.User memory user = adapter.getUser(_user);
         uint256 nastrBalAfter = user.collateralAmount;
-        ADAPTERS_DISTRIBUTOR.updateBalanceInAdapter(
-            "Sio2_Adapter",
-            _user,
-            nastrBalAfter
-        );
-        emit UpdateBalSuccess(_user, "Sio2_Adapter", nastrBalAfter);
+        try
+            ADAPTERS_DISTRIBUTOR.updateBalanceInAdapter(
+                "Sio2_Adapter",
+                _user,
+                nastrBalAfter
+            )
+        {
+            emit UpdateBalSuccess(_user, "Sio2_Adapter", nastrBalAfter);
+        } catch Error(string memory reason) {
+            emit UpdateBalError(_user, "Sio2_Adapter", nastrBalAfter, reason);
+        }
     }
 
     /// @notice Sets the maximum number of assets
