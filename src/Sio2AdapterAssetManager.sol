@@ -176,17 +176,12 @@ contract Sio2AdapterAssetManager is
     function updateBalanceInAdaptersDistributor(address _user) external onlyAdapter {
         Sio2Adapter.User memory user = adapter.getUser(_user);
         uint256 nastrBalAfter = user.collateralAmount;
-        try
-            ADAPTERS_DISTRIBUTOR.updateBalanceInAdapter(
-                "Sio2_Adapter",
-                _user,
-                nastrBalAfter
-            )
-        {
-            emit UpdateBalSuccess(_user, "Sio2_Adapter", nastrBalAfter);
-        } catch Error(string memory reason) {
-            emit UpdateBalError(_user, "Sio2_Adapter", nastrBalAfter, reason);
-        }
+        ADAPTERS_DISTRIBUTOR.updateBalanceInAdapter(
+            "Sio2_Adapter",
+            _user,
+            nastrBalAfter
+        );
+        emit UpdateBalSuccess(_user, "Sio2_Adapter", nastrBalAfter);
     }
 
     /// @notice Sets the maximum number of assets

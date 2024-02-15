@@ -120,4 +120,6 @@ interface ISio2Adapter {
 
     /// @notice Amount too large
     error AmountExceedsRevenuePool();    
+
+    error WrongAmountRedirect();
 }
