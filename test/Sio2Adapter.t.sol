@@ -22,11 +22,11 @@ contract Sio2AdapterTest is Test {
     Sio2AdapterAssetManager assetManager;
     Sio2AdapterData data;
 
-    MockSio2LendingPool pool;
-    MockERC20 nastr;
+    ISio2LendingPool pool;
+    ERC20Upgradeable nastr;
     MockERC20 rewardToken;
-    MockERC20 busd;
-    MockERC20 dot;
+    ERC20Upgradeable busd;
+    ERC20Upgradeable dot;
     MockVDToken vddot;
     MockERC20 dai;
     MockVDToken vddai;
@@ -36,24 +36,30 @@ contract Sio2AdapterTest is Test {
     MockVDToken vdusdt;
     MockSCollateralToken snastr;
     MockVDToken vdbusd;
-    MockPriceOracle priceOracle;
-    MockIncentivesController incentivesController;
+    ISio2PriceOracle priceOracle;
+    ISio2IncentivesController incentivesController;
     Liquidator liquidatorContract;
 
     address provider;
     address user;
     address liquidator;
+    address supplier;
 
     uint256 dot_precision = 1e8;
 
     function setUp() public {
-        nastr = new MockERC20("nASTR", "nASTR");
+        // nastr = new MockERC20("nASTR", "nASTR"); 
+
+        nastr = ERC20Upgradeable(0xE511ED88575C57767BAfb72BfD10775413E3F2b0);
+        busd = ERC20Upgradeable(0x4Bf769b05E832FCdc9053fFFBC78Ca889aCb5E1E);
+        // dot = ERC20Upgradeable(0xFFfFfFffFFfffFFfFFfFFFFFffFFFffffFfFFFfF);
+
         snastr = new MockSCollateralToken("snASTR", "snASTR");
-        busd = new MockERC20("BUSD", "BUSD");
+        // busd = new MockERC20("BUSD", "BUSD");
         vdbusd = new MockVDToken("vdBUSD", "vdBUSD");
         rewardToken = new MockERC20("SIO2", "SIO2");
-        dot = new MockERC20("DOT", "DOT");
-        dot.setDecimals(10);
+        // dot = new MockERC20("DOT", "DOT");
+        // dot.setDecimals(10);
         vddot = new MockVDToken("vdDOT", "vdDOT");
         vddot.setDecimals(10);
         dai = new MockERC20("DAI", "DAI");
@@ -67,26 +73,29 @@ contract Sio2AdapterTest is Test {
         usdt.setDecimals(6);
         vdusdt.setDecimals(6);
 
-        incentivesController = new MockIncentivesController(
-            snastr,
-            vdbusd,
-            rewardToken
-        );
+        // incentivesController = new MockIncentivesController(
+        //     snastr,
+        //     vdbusd,
+        //     rewardToken
+        // );
 
-        pool = new MockSio2LendingPool(
-            snastr,
-            nastr,
-            busd,
-            dot,
-            vdbusd,
-            vddot,
-            dai,
-            vddai,
-            usdc,
-            vdusdc,
-            usdt,
-            vdusdt
-        );
+        incentivesController = ISio2IncentivesController(0xc41e6Da7F6E803514583f3b22b4Ff660CCD39B03);
+
+        // pool = new ISio2LendingPool(
+        //     snastr,
+        //     nastr,
+        //     busd,
+        //     dot,
+        //     vdbusd,
+        //     vddot,
+        //     dai,
+        //     vddai,
+        //     usdc,
+        //     vdusdc,
+        //     usdt,
+        //     vdusdt
+        // );
+        pool = ISio2LendingPool(0x4df48B292C026f0340B60C582f58aa41E09fF0de);
 
         provider = address(new MockProvider(address(pool)));
 
@@ -98,16 +107,18 @@ contract Sio2AdapterTest is Test {
 
         assetManager.addAsset(address(busd), address(vdbusd), 8);
 
-        assetManager.addAsset(address(dot), address(vddot), 12);
+        // assetManager.addAsset(address(dot), address(vddot), 12);
 
-        priceOracle = new MockPriceOracle(
-            address(nastr),
-            address(busd),
-            address(dot),
-            address(dai),
-            address(usdc),
-            address(usdt)
-        );
+        // priceOracle = new MockPriceOracle(
+        //     address(nastr),
+        //     address(busd),
+        //     address(dot),
+        //     address(dai),
+        //     address(usdc),
+        //     address(usdt)
+        // );
+
+        priceOracle = ISio2PriceOracle(0x5f7c3639A854a27DFf64B320De5C9CAF9C4Bd323);
 
         adapter = new Sio2Adapter();
         adapter.initialize(
@@ -126,6 +137,7 @@ contract Sio2AdapterTest is Test {
 
         user = vm.addr(1); // convert private key to address
         liquidator = vm.addr(2);
+        supplier = 0xC8DB8d99121961D316d249b4D868D801deBD6e86; // the address with 100kk nASTR balance
 
         liquidatorContract = new Liquidator(
             ISio2LendingPool(address(pool)),
@@ -137,10 +149,14 @@ contract Sio2AdapterTest is Test {
         );
         liquidatorContract.grantRole(liquidatorContract.LIQUIDATOR(), user);
 
-        vm.deal(user, 5 ether); // add ether to user
-        nastr.mint(user, 1e72);
-        busd.mint(liquidator, 1e36);
-        dot.mint(liquidator, 1e36);
+        vm.deal(user, 1e10 ether); // add ether to user
+        // nastr.mint(user, 1e72);        
+        // busd.mint(liquidator, 1e36);
+        // dot.mint(liquidator, 1e36);
+
+        vm.startPrank(supplier);
+        nastr.transfer(user, 100000 ether);
+        vm.stopPrank();
 
         vm.prank(user);
         nastr.approve(address(adapter), 1e36);
@@ -347,5 +363,52 @@ contract Sio2AdapterTest is Test {
         );
 
         (, , uint256 col, , , , ) = adapter.userInfo(user);
+    }
+
+    function testLTAndLTV() public {
+        uint256 depositAmount = 10_000 ether;
+        uint256 depositAmountInUsd = adapter.toUSD(address(nastr), depositAmount);
+        (uint256 collateralLT, uint256 liquidationPenalty, uint256 collateralLTV) =
+            assetManager.getAssetParameters(address(nastr));
+        console.log("Sio2 LTV:", collateralLTV);
+        console.log("Sio2 LT:", collateralLT);
+        console.log("Sio2 LP:", liquidationPenalty);
+        console.log("LTV:", assetManager.getLTV());
+        console.log("LT:", assetManager.getLT());
+        vm.startPrank(user);
+        adapter.supply(depositAmount);
+  
+        // Available collateral to borrow and withdraw in USD
+        // Mock Price of NASTR is 5340158 ($0.05340158)
+        uint256 estCollateralInUsd = assetManager.calcEstimateUserCollateralUSD(user);
+        console.log("estCollateralInUsd:", estCollateralInUsd, estCollateralInUsd / 1e18, "USD");
+        assertEq(depositAmountInUsd, estCollateralInUsd, "Collateral values don't match");
+  
+        // Available collateral to borrow and withdraw in USD
+        (uint256 availBorrowUSD1, uint256 availWithdrawUSD1) = assetManager.availableCollateralUSD(user);
+        console.log("availBorrowUSD before borrow:", availBorrowUSD1, availBorrowUSD1 / 1e18, "USD");
+        console.log("availWithdrawUSD before borrow:", availWithdrawUSD1, availWithdrawUSD1 / 1e18, "USD");
+        assertEq((depositAmountInUsd * assetManager.getLTV()) / 1e4, availBorrowUSD1, "Available borrow values don't match");
+  
+        // Borrow all available borrow amount
+        adapter.borrow("BUSD", availBorrowUSD1);
+        vm.stopPrank();
+  
+        (uint256 availBorrowUSD2, uint256 availWithdrawUSD2) = assetManager.availableCollateralUSD(user);
+        console.log("availBorrowUSD after borrow 2:", availBorrowUSD2, availBorrowUSD2 / 1e18, "USD");
+        console.log("availWithdrawUSD after borrow 2:", availWithdrawUSD2, availWithdrawUSD2 / 1e18, "USD");
+        assertEq(availBorrowUSD2, 0, "Available borrow amount should be 0");
+        assertEq(availWithdrawUSD2, 0, "Available withdraw amount should be 0");
+  
+        // Get liquidation parameters with ltvFactor = 8000, ltFactor = 12000
+        (uint256 hf1,) = adapter.getLiquidationParameters(user);
+        console.log("Health factor with ltFactor = 12000:", hf1);
+  
+        // Get liquidation parameters with ltvFactor = 8000, ltFactor = 10000
+        assetManager.setParamsFactors(80000, 10000);
+        (uint256 hf2,) = adapter.getLiquidationParameters(user);
+        console.log("Health factor with ltFactor = 10000:", hf2);
+  
+        assertLt(hf1, hf2, "ltFactor = 12000 results in higher health factor!");
     }
 }

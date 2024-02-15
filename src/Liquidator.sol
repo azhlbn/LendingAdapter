@@ -10,6 +10,7 @@ import "./Sio2AdapterAssetManager.sol";
 import "./Sio2AdapterData.sol";
 import "./interfaces/IArthswapRouter.sol";
 import "./interfaces/IArthswapFactory.sol";
+import "./interfaces/IWASTR.sol";
 import "./libraries/ArthswapLibrary.sol";
 
 contract Liquidator is FlashLoanReceiverBase, AccessControl {
@@ -48,7 +49,6 @@ contract Liquidator is FlashLoanReceiverBase, AccessControl {
     }
 
     DebtAsset[] public assetsToLiquidate;
-    address[] public colToASTRPath;
 
     mapping(address => mapping(address => address[])) public pairToPath;
 
@@ -70,21 +70,53 @@ contract Liquidator is FlashLoanReceiverBase, AccessControl {
         assetManager = _assetManager;
         nastrAddr = _nastrAddr;
         data = _data;
-        /* set path for nastr => astr 👉 */ pairToPath[nastrAddr][wastrAddr] = [
-            /* path for DAI => ASTR */ 0x6De33698e9e9b787e09d3Bd7771ef63557E148bb,
-            0x6a2d262D56735DbA19Dd70682B39F6bE9a931D98,
-            0xAeaaf0e2c81Af264101B9129C00F4440cCF0F720
-        ];
+        pairToPath[nastrAddr][wastrAddr] = [0xE511ED88575C57767BAfb72BfD10775413E3F2b0,0xAeaaf0e2c81Af264101B9129C00F4440cCF0F720];
 
-        pairToPath[wastrAddr][dotAddr] = [0xAeaaf0e2c81Af264101B9129C00F4440cCF0F720, 0xFFfFfFffFFfffFFfFFfFFFFFffFFFffffFfFFFfF];
-        pairToPath[wastrAddr][baiAddr] = [0xAeaaf0e2c81Af264101B9129C00F4440cCF0F720, 0x733ebcC6DF85f8266349DEFD0980f8Ced9B45f35];
-        pairToPath[wastrAddr][ceusdcAddr] = [0xAeaaf0e2c81Af264101B9129C00F4440cCF0F720, 0x6a2d262D56735DbA19Dd70682B39F6bE9a931D98];
-        pairToPath[wastrAddr][ceusdtAddr] = [0xAeaaf0e2c81Af264101B9129C00F4440cCF0F720, 0x3795C36e7D12A8c252A20C5a7B455f7c57b60283];
-        pairToPath[wastrAddr][busdAddr] = [0xAeaaf0e2c81Af264101B9129C00F4440cCF0F720, 0x6a2d262D56735DbA19Dd70682B39F6bE9a931D98, 0x4Bf769b05E832FCdc9053fFFBC78Ca889aCb5E1E];
-        pairToPath[wastrAddr][daiAddr] = [0xAeaaf0e2c81Af264101B9129C00F4440cCF0F720, 0x7f27352D5F83Db87a5A3E00f4B07Cc2138D8ee52, 0xDe2578Edec4669BA7F41c5d5D2386300bcEA4678, 0x6De33698e9e9b787e09d3Bd7771ef63557E148bb];
-        pairToPath[wastrAddr][wethAddr] = [0xAeaaf0e2c81Af264101B9129C00F4440cCF0F720, 0x75364D4F779d0Bd0facD9a218c67f87dD9Aff3b4, 0xdd90E5E87A2081Dcf0391920868eBc2FFB81a1aF, 0x81ECac0D6Be0550A00FF064a4f9dd2400585FE9c];
-        pairToPath[wastrAddr][wbtcAddr] = [0xAeaaf0e2c81Af264101B9129C00F4440cCF0F720, 0x7f27352D5F83Db87a5A3E00f4B07Cc2138D8ee52, 0xDe2578Edec4669BA7F41c5d5D2386300bcEA4678, 0xad543f18cFf85c77E140E3E5E3c3392f6Ba9d5CA];
-        pairToPath[wastrAddr][bnbAddr] = [0xAeaaf0e2c81Af264101B9129C00F4440cCF0F720, 0x75364D4F779d0Bd0facD9a218c67f87dD9Aff3b4, 0xdd90E5E87A2081Dcf0391920868eBc2FFB81a1aF, 0x7f27352D5F83Db87a5A3E00f4B07Cc2138D8ee52];
+        pairToPath[wastrAddr][dotAddr] = [
+            0xAeaaf0e2c81Af264101B9129C00F4440cCF0F720,
+            0xFFfFfFffFFfffFFfFFfFFFFFffFFFffffFfFFFfF
+        ];
+        pairToPath[wastrAddr][baiAddr] = [
+            0xAeaaf0e2c81Af264101B9129C00F4440cCF0F720,
+            0x733ebcC6DF85f8266349DEFD0980f8Ced9B45f35
+        ];
+        pairToPath[wastrAddr][ceusdcAddr] = [
+            0xAeaaf0e2c81Af264101B9129C00F4440cCF0F720,
+            0x6a2d262D56735DbA19Dd70682B39F6bE9a931D98
+        ];
+        pairToPath[wastrAddr][ceusdtAddr] = [
+            0xAeaaf0e2c81Af264101B9129C00F4440cCF0F720,
+            0x3795C36e7D12A8c252A20C5a7B455f7c57b60283
+        ];
+        pairToPath[wastrAddr][busdAddr] = [
+            0xAeaaf0e2c81Af264101B9129C00F4440cCF0F720,
+            0x6a2d262D56735DbA19Dd70682B39F6bE9a931D98,
+            0x4Bf769b05E832FCdc9053fFFBC78Ca889aCb5E1E
+        ];
+        pairToPath[wastrAddr][daiAddr] = [
+            0xAeaaf0e2c81Af264101B9129C00F4440cCF0F720,
+            0x7f27352D5F83Db87a5A3E00f4B07Cc2138D8ee52,
+            0xDe2578Edec4669BA7F41c5d5D2386300bcEA4678,
+            0x6De33698e9e9b787e09d3Bd7771ef63557E148bb
+        ];
+        pairToPath[wastrAddr][wethAddr] = [
+            0xAeaaf0e2c81Af264101B9129C00F4440cCF0F720,
+            0x75364D4F779d0Bd0facD9a218c67f87dD9Aff3b4,
+            0xdd90E5E87A2081Dcf0391920868eBc2FFB81a1aF,
+            0x81ECac0D6Be0550A00FF064a4f9dd2400585FE9c
+        ];
+        pairToPath[wastrAddr][wbtcAddr] = [
+            0xAeaaf0e2c81Af264101B9129C00F4440cCF0F720,
+            0x7f27352D5F83Db87a5A3E00f4B07Cc2138D8ee52,
+            0xDe2578Edec4669BA7F41c5d5D2386300bcEA4678,
+            0xad543f18cFf85c77E140E3E5E3c3392f6Ba9d5CA
+        ];
+        pairToPath[wastrAddr][bnbAddr] = [
+            0xAeaaf0e2c81Af264101B9129C00F4440cCF0F720,
+            0x75364D4F779d0Bd0facD9a218c67f87dD9Aff3b4,
+            0xdd90E5E87A2081Dcf0391920868eBc2FFB81a1aF,
+            0x7f27352D5F83Db87a5A3E00f4B07Cc2138D8ee52
+        ];
     }
 
     receive() external payable {}
@@ -123,34 +155,58 @@ contract Liquidator is FlashLoanReceiverBase, AccessControl {
         address initiator,
         bytes calldata
     ) external override returns (bool) {
-        require(initiator == address(this), "Initiator should be current contract");
+        require(
+            initiator == address(this),
+            "Initiator should be current contract"
+        );
 
         // do liquidations and collect collateral
         for (uint256 idx; idx < assets.length; idx = _uncheckedIncr(idx)) {
             ERC20(assets[idx]).approve(address(adapter), amounts[idx]);
-            uint256 receivedCollateral = adapter.liquidationCall(
-                ERC20(assets[idx]).symbol(),
-                currentUser,
-                amounts[idx]
-            );
+            string memory assetName;
+            uint256 receivedCollateral;
+
+            if (assets[idx] == wastrAddr) {
+                assetName = "ASTR";
+                IWASTR(wastrAddr).withdraw(amounts[idx]);
+                receivedCollateral = adapter.liquidationCall{
+                    value: amounts[idx]
+                }(assetName, currentUser, amounts[idx]);
+            } else {
+                assetName = ERC20(assets[idx]).symbol();
+
+                receivedCollateral = adapter.liquidationCall(
+                    assetName,
+                    currentUser,
+                    amounts[idx]
+                );
+            }
         }
 
         // swap all collateral to native astr
         _swapCollateralToASTR();
-
-        // swap astr to tokens to repay flashloan
+        
         for (uint256 idx; idx < assets.length; idx = _uncheckedIncr(idx)) {
             address tokenB = assets[idx];
-            uint256[] memory amountsIn = ROUTER.getAmountsIn(amounts[idx] + premiums[idx], pairToPath[wastrAddr][tokenB]);
-            ROUTER.swapETHForExactTokens{value: amountsIn[0]}(
-                amounts[idx] + premiums[idx],
-                pairToPath[wastrAddr][tokenB],
-                address(this),
-                block.timestamp + 20 * 60
-            );
-
-            // approve amounts to lending pool to transfer debt
             uint256 amountOwing = amounts[idx] + premiums[idx];
+
+            // swap astr to tokens to repay flashloan
+            if (assets[idx] != wastrAddr) {
+                uint256[] memory amountsIn = ROUTER.getAmountsIn(
+                    amountOwing,
+                    pairToPath[wastrAddr][tokenB]
+                );
+                ROUTER.swapETHForExactTokens{value: amountsIn[0]}(
+                    amountOwing,
+                    pairToPath[wastrAddr][tokenB],
+                    address(this),
+                    block.timestamp + 20 * 60
+                );
+            } else {
+                IWASTR(wastrAddr).deposit{value: amountOwing}();
+            }
+
+            // approve amounts to lending pool to transfer debt            
             IERC20(assets[idx]).approve(address(LENDING_POOL), amountOwing);
         }
 
@@ -159,7 +215,7 @@ contract Liquidator is FlashLoanReceiverBase, AccessControl {
 
     // function swapASTRtoTokens(address[] calldata assets, uint256[] calldata amounts, uint256[] calldata premiums)
 
-    function _swapCollateralToASTR() private { 
+    function _swapCollateralToASTR() private {
         uint256 nastrBalance = ERC20(nastrAddr).balanceOf(address(this));
         uint256[] memory amounts = ArthswapLibrary.getAmountsOut(
             ROUTER.factory(),
@@ -201,7 +257,7 @@ contract Liquidator is FlashLoanReceiverBase, AccessControl {
         DebtAsset[] memory _sortedDebtAssets,
         uint256 _totalDebtUSD
     ) public view returns (address[] memory, uint256[] memory) {
-        uint256 sumToLiquidateUSD = _totalDebtUSD / 2;
+        uint256 sumToLiquidateUSD = (_totalDebtUSD * 10) / 21;
         uint256 collectedSumUSD; // sum to flashloan
         uint256 len = _sortedDebtAssets.length;
 
@@ -273,8 +329,15 @@ contract Liquidator is FlashLoanReceiverBase, AccessControl {
         );
     }
 
-    function setPath(address tokenA, address tokenB, address[] memory path) public onlyRole(DEFAULT_ADMIN_ROLE) {
-        require(tokenA != address(0) && tokenB != address(0), "Zero address alarm");
+    function setPath(
+        address tokenA,
+        address tokenB,
+        address[] memory path
+    ) public onlyRole(DEFAULT_ADMIN_ROLE) {
+        require(
+            tokenA != address(0) && tokenB != address(0),
+            "Zero address alarm"
+        );
         require(path.length > 0, "Path shouldn't be empty");
 
         pairToPath[tokenA][tokenB] = path;
@@ -343,7 +406,17 @@ contract Liquidator is FlashLoanReceiverBase, AccessControl {
         emit Withdraw(msg.sender, balance);
     }
 
+    function changeCollateralAddr(
+        address collateralAddress,
+        address[] memory path
+    ) public onlyRole(DEFAULT_ADMIN_ROLE) {
+        nastrAddr = collateralAddress;
+        pairToPath[nastrAddr][wastrAddr] = path;
+    }
+
     function _uncheckedIncr(uint256 _i) internal pure returns (uint256) {
-        unchecked { return ++_i; }
+        unchecked {
+            return ++_i;
+        }
     }
 }

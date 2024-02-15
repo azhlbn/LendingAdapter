@@ -13,7 +13,7 @@ import "../src/interfaces/ISio2PriceOracle.sol";
 import "../src/interfaces/IArthswapRouter.sol";
 import "../src/interfaces/IArthswapPair.sol";
 
-contract LiquidatorTest is Test {
+contract LiquidatorMultiTest is Test {
     using stdStorage for StdStorage;
 
     Sio2Adapter adapter;
